@@ -1,3 +1,4 @@
+import {handleChat} from './ai-chat.js';
 import { getDatabase } from './database.js';
 import { ApiError, json, readJson, requireSameOrigin } from './security.js';
 import { getIdentity, handleAuth } from './auth.js';
@@ -83,11 +84,12 @@ export async function handleApi(request, env = {}, options = {}) {
     let db;
     try { db = await getDatabase(env); }
     catch (error) {
-      if (path === '/api/session') return json({ user: null, auth: { provider: 'local', registrationEnabled: false }, config: { databaseReady: false, chatConfigured: false }, error: { code: error.code || 'DATABASE_NOT_CONFIGURED', message: '请先配置持久化数据库。' } });
+    if (path === '/api/session') return json({ user: null, auth: { provider: 'local', registrationEnabled: false }, config: { databaseReady: false, chatConfigured: false }, error: { code: error.code || 'DATABASE_NOT_CONFIGURED', message: '请先配置持久化数据库。' } });
       throw error;
     }
     const authResponse = await handleAuth(request, env, db, options); if (authResponse) return authResponse;
     const user = await getIdentity(request, env, db, options);
+    const chatResponse=await handleChat(request,env,db,user,options);if(chatResponse)return chatResponse;
     if (path === '/api/session' && request.method === 'GET') return json({ user, auth: { provider: 'local', registrationEnabled: false }, config: { databaseReady: true, chatConfigured: false, adminConfigured: !!env.ADMIN_EMAIL && String(env.ADMIN_PASSWORD || '').length >= 12 } });
     const admin = path === '/api/admin/personas' || path.startsWith('/api/admin/');
     if (admin && user?.role !== 'admin') throw new ApiError(401, 'ADMIN_REQUIRED', '请先使用管理员账号登录。');

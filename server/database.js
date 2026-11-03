@@ -1,3 +1,4 @@
+import { chatSchema } from './ai-chat.js';
 import { ApiError } from './security.js';
 const connections = new Map();
 export const schemaSql = `
@@ -59,7 +60,7 @@ export async function getDatabase(env = {}) {
   connections.set(file, db); return db;
 }
 export async function migrateDatabase(db) {
-  const statements = schemaSql.split(';').map(sql => sql.trim()).filter(Boolean).map(sql => db.prepare(sql));
+  const statements = (schemaSql+chatSchema).split(';').map(sql => sql.trim()).filter(Boolean).map(sql => db.prepare(sql));
   await db.batch(statements);
   // Compatibility with the uncommitted first catalog prototype: preserve all rows.
   const columns = db.dialect === 'postgres'

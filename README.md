@@ -38,3 +38,8 @@ GitHub Pages 只能展示原静态功能，不能运行管理员后台或数据�
 实际 Neon/PostgreSQL 连接、Vercel Preview 路由和 Cookie、实体 iPhone Safari、中国大陆网络可达性与一万条数据性能仍未验证。LIKE 包含搜索不能承诺全文索引性能。批量导入/批量编辑、提示词版本回滚、用户注册和创作、审核、真实AI历史与额度、商业化、正式SEO与合规上线不属于本次已交付功能。不要依据本地通过就宣称生产上线、备案或收录成功。
 
 当前收尾测试记录见 [docs/phase1-validation.md](docs/phase1-validation.md)。独立 Vercel 测试部署步骤见 [docs/vercel-test.md](docs/vercel-test.md)。所有真实凭据仅在服务端环境变量配置，禁止发到聊天或提交Git。
+
+
+## 第二阶段最小AI接口（新增，默认关闭）
+
+服务端已增加Token Rhythm/OpenAI Chat Completions兼容Provider与管理员多轮测试接口；默认仍为固定文案演示。此前“未接真实AI”的描述指未完成供应商实连验证，不代表没有接口代码。本轮没有调用收费API。安全配置、额度、Mock测试和iPhone首次手动开启说明见 [docs/ai-testing.md](docs/ai-testing.md)。新增变量仅放服务端：AI_ENABLED=false、AI_BASE_URL、AI_MODEL、AI_API_KEY、AI_DAILY_LIMIT、AI_RATE_LIMIT。AI_MODEL必须使用供应商实际模型ID；密钥不得发到聊天。
