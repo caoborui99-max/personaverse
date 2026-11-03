@@ -1,115 +1,74 @@
-# 人格宇宙 PersonaVerse
+# 不见真我 · PersonaVerse
 
-一个面向手机用户的 DeepSeek 虚拟人格提示词平台。采用原生 HTML、CSS、JavaScript，无框架、无构建步骤、无第三方依赖，可作为纯静态网站免费部署到 GitHub Pages。
+在原有 HTML、CSS、JavaScript 网站上增量增加手机管理后台、数据库与人格聊天。原有宇宙视觉、分类搜索、人格详情、提示词复制与本地收藏继续保留。旧静态版说明见 [docs/static-v1.md](docs/static-v1.md)。
 
-源码仓库：[caoborui99-max/personaverse](https://github.com/caoborui99-max/personaverse)。当前版本**未部署、未购买任何服务**。本地浏览和继续开发不需要持续连接 GitHub。
+## 当前实现与上线边界
 
-## 第一版功能
+- 原在线 Sites 网站继续保留，升级代码在 GitHub 分支中验证；不要把旧在线地址当作新版后台已上线。
+- 新版需要服务端与持久化数据库。GitHub Pages 只能展示静态前端，不能运行后台、保护 API 密钥或提供数据库聊天。
+- 推荐 Vercel + Neon PostgreSQL 免费额度方案。未配置数据库、管理员或 DeepSeek 密钥时，界面和 API 会明确提示，不会伪造聊天、统计或数据保存成功。
+- 真实 API 调用会使用 DeepSeek 账户余额；没有设置 DEEPSEEK_API_KEY 时不会发起模型请求。
 
-- 深色宇宙主题首页与响应式布局。
-- 12 个内置人格、精选卡片、5 种分类。
-- 按人格名称、英文名、标签和描述搜索，支持组合分类筛选及名称排序。
-- 独立人格详情页、完整提示词、对话开场白。
-- 提示词可临时编辑，一键复制后粘贴到 DeepSeek 新对话中使用。
-- 当前浏览器内收藏、使用指南、无结果提示与无效人格链接提示。
-- 手机底部导航、精选人格横向浏览、键盘焦点样式与减少动态效果设置。
+## 功能
 
-本项目提供提示词，不直接连接 DeepSeek API，也不提供站内 AI 聊天。使用时不需要 API 密钥。点击「前往 DeepSeek」才会打开 DeepSeek 官方网站；平台不会自动发送提示词或对话内容。
+- 手机后台：人格新增、编辑、草稿、发布、下架、软删除、分类管理、标签、HTTPS 头像、欢迎语、开场白、示例问题、排序与搜索。
+- 系统提示词由服务器保存和读取。普通用户不能修改服务器上的人格或给聊天接口覆盖 system role。管理员可选择开放提示词复制；已有 12 个人格保留复制行为。
+- 持久化：人格、用户、会话、消息、额度、收藏保存到数据库；初始化只执行一次，不会在重新部署时覆盖后台编辑或恢复已删除的人格。
+- 聊天：独立人格提示词、数据库历史、加载/失败/重发、重复请求保护、每天每用户额度；未配置密钥明确禁用。
+- 预留免费/高级人格、用户账户、会员层级、个人额度和真实使用统计；未连接支付。
 
-## 本地预览
+## iPhone 从 GitHub 部署到 Vercel
 
-直接使用浏览器打开 `index.html` 即可浏览。建议通过本地 HTTP 服务预览，以获得更稳定的剪贴板和本地存储行为：
+1. 登录 [Vercel](https://vercel.com/new)，使用 GitHub 账号导入现有仓库 `caoborui99-max/personaverse`。无需重新创建仓库。
+2. 选择包含升级代码的分支。若还在验收阶段，选择 `upgrade/mobile-admin-chat`；合并后选择 `main`。
+3. Framework 选择 **Other**，Root Directory 保持仓库根目录。Build Command 为 `npm run build`，Output Directory 为 `public`，Install Command 为 `npm install`。仓库的 vercel.json 已提供这些配置。
+4. 在 Vercel Storage/Marketplace 连接 **Neon** 的免费计划，或在 [Neon](https://console.neon.tech/) 创建免费 PostgreSQL 数据库，然后把连接串填入 Vercel 环境变量 `DATABASE_URL`。用复制按钮获取连接串，不要发布到 GitHub。
+5. 在 Vercel 项目的 Settings → Environment Variables 设置下面的服务端变量。只需在手机浏览器操作，未填的 API 密钥可稍后添加。
+6. 点击 Deploy/Redeploy。构建会在服务端自动执行幂等数据库迁移和初始内容导入，手机用户不需要运行 SQL 或终端。
+7. 构建成功后，打开 Vercel 提供的 HTTPS 地址。后台入口为该地址后面加 `/admin.html`。
+8. 不选择付费试用、付费计划或购买域名。Vercel Hobby 适合个人非商业项目，商业运营前请核对供应商套餐条款。免费额度、暂停与资源限制以各供应商为准。
 
-```bash
-cd /workspace/sites/personaverse
-python3 -m http.server 8000
-```
+| 环境变量 | 用途 |
+|---|---|
+| DATABASE_URL | Neon PostgreSQL 连接串，生产持久化必需 |
+| ADMIN_EMAIL | 管理员登录邮箱 |
+| ADMIN_PASSWORD | 管理员强密码，至少 12 字符，不存在默认密码 |
+| DEEPSEEK_API_KEY | 可选，DeepSeek 服务端密钥；未设置时聊天不可用 |
+| DEEPSEEK_MODEL | 默认 deepseek-chat |
+| ALLOW_REGISTRATION | false 关闭普通用户注册；默认允许 |
 
-然后访问：
+所有变量仅保存在 Vercel 服务端配置。禁止加 NEXT_PUBLIC_ 或 VITE_ 前缀，禁止写入 js/、HTML、GitHub 文件或聊天记录。Production 与 Preview 的数据库和密钥按需隔离；测试不需要真实模型密钥。
 
-- 首页：`http://localhost:8000/`
-- 人格详情示例：`http://localhost:8000/persona.html?id=moonlight`
-- 收藏：`http://localhost:8000/index.html?view=favorites`
-- 分类示例：`http://localhost:8000/index.html?category=学习成长`
+## 手机新增第一个人格
 
-在自己的电脑上运行时，将 `cd` 后的路径改为项目所在目录。结束预览时在终端按 `Ctrl + C`。
+1. 打开新版的 `/admin.html`，使用上面配置的管理员邮箱和密码登录。
+2. 点击「新增人格」，填写名称、简介、分类、标签、头像地址和系统提示词。
+3. 设置欢迎语、开场白与示例问题，选择免费或高级人格、排序位置以及是否开放提示词复制。
+4. 可以先「保存草稿」，以后再打开继续编辑；草稿不会出现在前台。
+5. 点击「发布」。刷新首页，即可看到刚发布的人格，不需要重新部署。
+6. 点击人格开始聊天。用户需登录；若服务端未配置 DeepSeek 密钥，会显示明确提示，不会产生假回复或模型费用。
 
-复制优先使用浏览器剪贴板 API；浏览器拒绝时会尝试兼容方式，并在无法自动复制时提示手动操作。手机浏览远程地址时，通常需要 HTTPS 才能稳定使用剪贴板 API；GitHub Pages 提供 HTTPS。
+## 本地开发与检查
 
-## 文件结构
-
-```text
-personaverse/
-├── index.html          # 首页入口
-├── persona.html        # 人格详情入口，通过 ?id= 选择人格
-├── .nojekyll           # GitHub Pages 直接按静态文件提供服务
-├── .gitignore
-├── README.md
-├── assets/
-│   └── favicon.svg     # 本地图标
-├── css/
-│   └── style.css       # 深色主题、布局与手机适配
-└── js/
-    ├── personas.js     # 人格数据和完整提示词
-    └── app.js          # 渲染、搜索、分类、收藏与复制
-```
-
-所有站内资源使用相对路径，适用于 `https://用户名.github.io/仓库名/` 这样的 GitHub Pages 项目子路径。详情页使用实际的 `persona.html` 文件，无需服务器路由或重写规则。
-
-## 数据与编辑
-
-收藏保存在当前浏览器的 `localStorage`，键名为 `personaverse-favorites`。收藏不会跨设备同步；清除浏览器站点数据后会被删除。浏览器禁用存储时，本次浏览仍可操作收藏，但无法持久保存。
-
-详情页内修改提示词只影响当前页面，**不会自动保存**。刷新或离开页面前，请复制需要保留的内容。要永久修改内置人格，请编辑 `js/personas.js`。
-
-在 `window.PERSONAS` 数组中添加以下结构的对象即可新增人格：
-
-```javascript
-{
-  id: 'unique-persona-id', // 必须唯一，用于详情页链接
-  name: '人格名称',
-  englishName: 'Persona',
-  category: '创意灵感',
-  tagline: '一句简洁的人格介绍。',
-  description: '说明人格能帮助用户做什么，以及适合的对话场景。',
-  tags: ['标签一', '标签二', '标签三'],
-  icon: 'spark',
-  accent: 'purple',
-  featured: false,
-  prompt: `【你的角色】
-完整的提示词内容。
-
-【开始对话】
-指定人格应如何回应用户。`,
-  starters: ['开场白一', '开场白二', '开场白三']
-}
-```
-
-分类使用：`情感陪伴`、`效率工具`、`学习成长`、`创意灵感`、`趣味角色`。若要增加分类，还需同步修改 `js/app.js` 中的分类列表和图标映射。
-
-可用图标：`moon`、`spark`、`compass`、`pen`、`code`、`book`、`coffee`、`music`、`leaf`、`planet`。可用强调色：`purple`、`cyan`、`rose`、`amber`、`green`、`blue`。首页最多展示数组中前三个 `featured: true` 的精选人格。
-
-## 以后免费部署到 GitHub Pages
-
-以下仅为后续操作说明，本次没有执行：
-
-当前仓库保持私有。本次未更改仓库可见性；以后使用 GitHub Free 的 Pages 时，需要由你决定是否将仓库设为公开。
-
-1. 在 GitHub 创建一个公开仓库，例如 `personaverse`。免费账户可使用公开仓库的 GitHub Pages。
-2. 将**本目录中的文件**上传到仓库根目录，确保根目录直接包含 `index.html`、`persona.html`、`css/`、`js/`、`assets/` 和 `.nojekyll`。不要把整个 `personaverse` 目录再嵌套上传一层。
-3. 打开仓库的 **Settings → Pages**，将发布来源设为 **Deploy from a branch**。
-4. 选择存放文件的分支（通常是 `main`）和根目录 **`/ (root)`**，保存。
-5. 等待 GitHub 构建完成后，使用 Pages 设置中给出的 HTTPS 地址访问。
-
-无需付费主机、数据库、域名或 GitHub Actions 构建配置。需要发布时，再连接 GitHub 或手动上传即可。
-
-## 基础检查
-
-如果本机安装了 Node.js，可检查 JavaScript 语法：
+需要 Node.js 24（推荐）。此部分供以后有电脑时使用，不影响上述 iPhone 部署。
 
 ```bash
-node --check js/personas.js
-node --check js/app.js
+npm install
+cp .env.example .env
+# 在 .env 中填写本地管理员邮箱与强密码；不要提交 .env。
+npm run dev
+npm test
+npm run build
+npx playwright install chromium
+npm run test:browser
 ```
 
-浏览器验收时，建议检查分类与搜索组合、收藏后刷新、详情链接直接打开、编辑后复制、复制受限时的提示，以及不同手机宽度下的布局。
+本地使用 `.local/personaverse.sqlite`，只适用于开发。Vercel/生产环境绝不会回退到临时文件或内存充当数据库。数据库迁移也可以单独运行 `npm run db:migrate`。
+
+## 验证与保护
+
+GitHub Actions 工作流 `Platform checks` 执行服务端测试、构建和手机浏览器测试。结果必须以具体 workflow run 为准；源文件中存在测试不等于已经运行成功。
+
+API 对每次管理员操作校验身份与权限，对会话逐项校验所有权。会话令牌只以哈希存储，Cookie 使用 HttpOnly/SameSite；写操作校验同源 Origin。模型请求限制上下文、输出和超时，并以数据库处理并发与重复请求，客户端不接触密钥。每日额度按 UTC 自然日计算。统计只来自真实数据库记录。删除人格采用软删除，保留历史引用。
+
+如果将来接回 Sites 服务端，可利用其受信任身份网关和 D1 适配；不能在 Vercel 信任来自浏览器的 oai-* 请求头。本次独立部署入口为 Vercel + Neon，旧 Sites 地址不会自动升级。
