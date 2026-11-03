@@ -2,6 +2,12 @@ import { mkdir, readFile, readdir, cp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 const root = process.cwd();
+// Fail visibly instead of publishing a test site with a nonfunctional admin API.
+if (process.env.VERCEL) {
+  const missing = ['DATABASE_URL', 'ADMIN_EMAIL', 'ADMIN_PASSWORD'].filter(key => !process.env[key]);
+  if (missing.length) throw new Error('Vercel server environment missing: ' + missing.join(', '));
+  if (process.env.ADMIN_PASSWORD.length < 12) throw new Error('ADMIN_PASSWORD must contain at least 12 characters.');
+}
 const files = ['index.html', 'persona.html', 'admin.html', '.nojekyll'];
 async function check(dir) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {

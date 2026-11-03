@@ -3,7 +3,7 @@
   "framework": null,
   "buildCommand": "npm run build",
   "outputDirectory": "public",
-  "installCommand": "npm install",
+  "installCommand": "npm ci",
   "functions": {
     "api/index.js": {
       "maxDuration": 60
@@ -35,4 +35,3 @@
     }
   ]
 }
-
