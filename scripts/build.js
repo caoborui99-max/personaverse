@@ -8,7 +8,7 @@ if (process.env.VERCEL) {
   if (missing.length) throw new Error('Vercel server environment missing: ' + missing.join(', '));
   if (process.env.ADMIN_PASSWORD.length < 12) throw new Error('ADMIN_PASSWORD must contain at least 12 characters.');
 }
-const files = ['index.html', 'persona.html', 'admin.html', '.nojekyll'];
+const files = ['index.html', 'persona.html', 'admin.html', 'chat.html', '.nojekyll'];
 async function check(dir) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const file = path.join(dir, entry.name);

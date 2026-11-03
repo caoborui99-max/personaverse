@@ -6,10 +6,13 @@ CREATE TABLE IF NOT EXISTS personas (id TEXT PRIMARY KEY, data TEXT NOT NULL, st
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, email TEXT NOT NULL, credential_hash TEXT NOT NULL, expires_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, window_start TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS persona_catalog (id TEXT PRIMARY KEY, name TEXT NOT NULL, search_text TEXT NOT NULL, category_id TEXT NOT NULL, featured INTEGER NOT NULL DEFAULT 0,is_public INTEGER NOT NULL DEFAULT 1);
+CREATE INDEX IF NOT EXISTS persona_catalog_category ON persona_catalog(category_id,id);
+CREATE INDEX IF NOT EXISTS persona_catalog_name ON persona_catalog(name,id);
 CREATE INDEX IF NOT EXISTS personas_status_order ON personas(status,sort_order);
 `;
 function portableSql(sql) {
-  let n = 0; let quoted = false;
+  let n = 0;
   return sql.replace(/'[^']*(?:''[^']*)*'|\?/g, match => match === '?' ? '$' + (++n) : match);
 }
 function prepared(owner, sql, params = []) {
@@ -24,6 +27,7 @@ export async function getDatabase(env = {}) {
     const client = neon(env.DATABASE_URL);
     const normalize = r => ({ results: r.rows || [], meta: { changes: r.rowCount || 0 } });
     const db = {
+      dialect: 'postgres',
       async execute(sql, params = []) { return normalize(await client.query(portableSql(sql), params, { fullResults: true })); },
       prepare(sql) { return prepared(db, sql); },
       async batch(statements) { const results = await client.transaction(statements.map(s => client.query(portableSql(s.sql), s.params)), { fullResults: true }); return results.map(normalize); },
@@ -44,6 +48,7 @@ export async function getDatabase(env = {}) {
     const result = stmt.run(...params); return { results: [], meta: { changes: Number(result.changes) } };
   }
   const db = {
+    dialect: 'sqlite',
     async execute(sql, params) { return execute(sql, params); }, prepare(sql) { return prepared(db, sql); },
     async batch(statements) {
       local.exec('BEGIN IMMEDIATE');
@@ -56,5 +61,12 @@ export async function getDatabase(env = {}) {
 export async function migrateDatabase(db) {
   const statements = schemaSql.split(';').map(sql => sql.trim()).filter(Boolean).map(sql => db.prepare(sql));
   await db.batch(statements);
+  // Compatibility with the uncommitted first catalog prototype: preserve all rows.
+  const columns = db.dialect === 'postgres'
+    ? (await db.prepare("SELECT column_name AS name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='persona_catalog'").all()).results
+    : (await db.prepare('PRAGMA table_info(persona_catalog)').all()).results;
+  if (!columns.some(column => column.name === 'is_public')) {
+    await db.batch([db.prepare('ALTER TABLE persona_catalog ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1'),db.prepare("INSERT INTO settings(key,value) VALUES ('catalog_visibility_reindex','pending') ON CONFLICT(key) DO UPDATE SET value=excluded.value")]);
+  }
 }
 export async function closeDatabases() { for (const db of connections.values()) await db.close(); connections.clear(); }
