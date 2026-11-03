@@ -11,13 +11,10 @@
     "start": "node --env-file-if-exists=.env scripts/dev-server.js",
     "build": "node scripts/build.js",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.js",
-    "test": "node --test tests/*.test.js",
-    "test:browser": "playwright test"
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2"
   },
-  "devDependencies": {
-    "@playwright/test": "^1.56.1"
-  }
+  "devDependencies": {}
 }

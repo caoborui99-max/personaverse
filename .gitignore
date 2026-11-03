@@ -2,13 +2,9 @@
 node_modules/
 __pycache__/
 .local/
+
 .env
 .env.*
 !.env.example
 public/
-.vercel/
-*.sqlite
-*.sqlite-shm
-*.sqlite-wal
-test-results/
-playwright-report/
+*.sqlite*

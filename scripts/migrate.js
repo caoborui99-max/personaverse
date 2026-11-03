@@ -6,3 +6,4 @@ try {
   await initializeData(db);
   console.log('Schema ready. Initial personas seeded only if never initialized; existing edits preserved.');
 } finally { await closeDatabases(); }
+

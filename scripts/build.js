@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, cp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 const root = process.cwd();
-const files = ['index.html', 'persona.html', 'admin.html', 'chat.html', '.nojekyll'];
+const files = ['index.html', 'persona.html', 'admin.html', '.nojekyll'];
 async function check(dir) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const file = path.join(dir, entry.name);
@@ -36,3 +36,4 @@ if (process.env.DATABASE_URL) {
 } else {
   console.log('DATABASE_URL is not configured; server APIs will require database setup.');
 }
+
