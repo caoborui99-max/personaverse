@@ -1,6 +1,13 @@
 import { mkdir, readFile, readdir, cp, rm } from 'node:fs/promises';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
+function checkSyntax(file) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ['--check', file], { stdio: 'inherit', timeout: 30000 });
+    child.once('error', reject);
+    child.once('exit', (code, signal) => code === 0 ? resolve() : reject(new Error('Syntax check failed: ' + file + ' (' + (signal || code) + ')')));
+  });
+}
 const root = process.cwd();
 // Fail visibly instead of publishing a test site with a nonfunctional admin API.
 if (process.env.VERCEL) {
@@ -14,8 +21,7 @@ async function check(dir) {
     const file = path.join(dir, entry.name);
     if (entry.isDirectory()) await check(file);
     else if (entry.name.endsWith('.js')) {
-      const result = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' });
-      if (result.status !== 0) throw new Error(result.stderr);
+      await checkSyntax(file);
     }
   }
 }
@@ -28,18 +34,5 @@ for (const file of files) await cp(path.join(root, file), path.join(output, file
 for (const dir of ['css', 'js', 'assets']) await cp(path.join(root, dir), path.join(output, dir), { recursive: true });
 console.log('Build complete: frontend only in public/. API source and environment values are excluded.');
 
-// Vercel executes this server-side. A phone-only owner can connect Neon and redeploy
-// without running SQL or a terminal. Existing seed data is never overwritten.
-if (process.env.DATABASE_URL) {
-  const { getDatabase, migrateDatabase, closeDatabases } = await import('../server/database.js');
-  const { initializeData } = await import('../server/handler.js');
-  try {
-    const db = await getDatabase(process.env);
-    await migrateDatabase(db);
-    await initializeData(db);
-    console.log('Persistent database migration/one-time seed completed.');
-  } finally { await closeDatabases(); }
-} else {
-  console.log('DATABASE_URL is not configured; server APIs will require database setup.');
-}
-
+// Schema changes are an explicit operator action, never a build side effect.
+console.log('Database migration skipped by design. Run npm run db:migrate explicitly in the intended environment.');

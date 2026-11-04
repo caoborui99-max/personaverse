@@ -10,10 +10,10 @@
 4. Framework=Other，Root Directory=仓库根目录，Node=24.x，Install=npm ci，Build=npm run build，Output=public。仓库 vercel.json 已配置命令。
 5. 在 Neon 创建一个独立的免费测试数据库（https://console.neon.tech/），或在 Vercel Storage/Marketplace 连接 Neon 免费计划。不要复用正式数据库。复制 PostgreSQL 连接串。
 6. Vercel 项目 Settings → Environment Variables 添加 DATABASE_URL、ADMIN_EMAIL、ADMIN_PASSWORD。密码至少12字符，建议密码管理器随机生成。将变量应用到实际部署使用的环境：测试项目的 Production，及需要的 Preview。没有默认管理员密码。
-7. 点击 Redeploy，使用更新的环境变量；首次构建会自动建表并导入12个人格，后续部署不会覆盖编辑。数据库连接失败会终止构建。
+7. 注意：整合版本构建已取消自动数据库迁移。必须先备份并核对独立测试库，在安全操作环境中显式执行迁移；生产标记环境要求 `npm run db:migrate -- --confirm-production`。未完成迁移前不要认为 API 已可用。再 Redeploy，构建只生成前端文件，不校验数据库连通性。手机上没有安全迁移环境时应暂停，请勿把连接串粘贴到聊天。
 8. 成功后复制 Vercel 实际给出的 HTTPS 地址。不要把 GitHub 仓库地址或尚未生成的域名当作测试地址。
 
-所有真实密钥仅在供应商控制台输入，不发到聊天、不写到 GitHub。不需要 AI API Key。本项目未连接 AI 聊天。
+所有真实密钥仅在供应商控制台输入，不发到聊天、不写到 GitHub。不需要 AI API Key。现有代码包含管理员 AI 测试接口，保持 AI_ENABLED=false，不配置真实密钥。
 
 ## 实际地址生成后的验收
 

@@ -32,9 +32,13 @@ export async function initializeData(db) {
 async function categories(db) { return (await db.prepare('SELECT id,name,sort_order FROM categories ORDER BY sort_order,id').all()).results.map(row => ({ id: row.id, name: row.name, sortOrder: Number(row.sort_order) })); }
 function record(row) { return row ? { ...JSON.parse(row.data), id: row.id, status: row.status, sortOrder: Number(row.sort_order) } : null; }
 function publicPersona(p, cats) {
-  const { systemPrompt, ...safe } = p;
+  // Public fields are deliberately enumerated: future internal metadata stays private.
+  const fields = ['id', 'name', 'englishName', 'description', 'tagline', 'avatarUrl',
+    'categoryId', 'tags', 'icon', 'accent', 'featured', 'copyEnabled',
+    'welcomeMessage', 'starters', 'exampleQuestions'];
+  const safe = Object.fromEntries(fields.filter(key => Object.hasOwn(p, key)).map(key => [key, p[key]]));
   safe.category = cats.find(c => c.id === p.categoryId)?.name || p.category || '';
-  if (p.copyEnabled) safe.prompt = systemPrompt;
+  if (p.copyEnabled === true) safe.prompt = p.systemPrompt;
   return safe;
 }
 async function listing(request,db,cats,admin) {

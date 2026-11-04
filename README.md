@@ -12,7 +12,7 @@ Node.js 24 推荐。执行 `npm install`，复制 `.env.example` 为 `.env`，�
 
 Vercel 导入现有 GitHub 仓库，选择包含本轮 MVP 的代码分支。Framework=Other，根目录保持默认，Build Command=`npm run build`，Output Directory=`public`，Install Command=`npm ci`。
 
-通过 Vercel 的 Storage/Marketplace 连接免费 Neon PostgreSQL，或从 Neon 控制台复制连接串，填入服务器环境变量 `DATABASE_URL`。再设置 `ADMIN_EMAIL` 和强密码 `ADMIN_PASSWORD`。部署构建会自动建表、一次性导入12个人格。后续构建不会覆盖管理员编辑或恢复已删除的人格。生产环境缺少 DATABASE_URL 会明确拒绝数据操作，不会使用临时文件假装持久化。
+通过 Vercel 的 Storage/Marketplace 连接免费 Neon PostgreSQL，或从 Neon 控制台复制连接串，填入服务器环境变量 `DATABASE_URL`。再设置 `ADMIN_EMAIL` 和强密码 `ADMIN_PASSWORD`。构建仅生成前端文件，不连接数据库。数据库迁移必须作为独立操作，备份并核对目标后执行 `npm run db:migrate`；生产环境还需显式追加 `-- --confirm-production`。种子初始化保留现有编辑及软删除状态。生产环境缺少 DATABASE_URL 会明确拒绝数据操作，不会使用临时文件假装持久化。
 
 完成后用 Safari 打开 Vercel 返回的 HTTPS 地址，进入 `/admin.html` 登录，点击「新增人格」，填写名称、简介、分类、头像 HTTPS 地址、系统提示词和状态后保存。已上架人格刷新首页可见；草稿及下架内容不对普通访客显示。头像可留空，沿用图标。无需重新部署即可发布新内容。
 
@@ -28,7 +28,7 @@ GitHub Pages 只能展示原静态功能，不能运行管理员后台或数据�
 ## 第一阶段已验收范围
 
 - 数据库动态查询：搜索 q、分类 category、排序 recommended/name、page/limit 分页（每次最多100条），后台另支持状态过滤；首页默认12条、后台默认20条。详情按独立ID读取，不依赖当前分页。
-- 查询索引与角色变更在同一事务更新；SQLite 旧 MVP 数据及早期缺少公开状态列的索引会兼容升级。仅通过 `npm run db:migrate` 或启动/构建入口迁移；不要手工只运行一份 SQL 就假定全部兼容逻辑完成。
+- 查询索引与角色变更在同一事务更新；SQLite 旧 MVP 数据及早期缺少公开状态列的索引会兼容升级。仅通过 `npm run db:migrate` 或现有 Node 启动入口迁移，构建不迁移；不要手工只运行一份 SQL 就假定全部兼容逻辑完成。
 - 后台管理名称、头像地址、简介、背景、性格、语言风格、标签、精选、提示词复制权限、公开/私人、草稿/上架/下架，删除为软删除。前端收藏仍是本浏览器本地收藏。
 - 保留12个原创初始人格，不在每次部署时覆盖管理员资料。`js/personas.js` 仅为明确标注的原版静态预览回退；新建人格从数据库读取，不需要改前端或重新部署。
 - `/chat.html?id=...` 为固定文案演示，不调用任何模型；内容仅存当前页面内存，刷新即清空，不能当作真实聊天历史。未配置服务端时演示人格无法加载，会明确提示。
@@ -48,3 +48,7 @@ GitHub Pages 只能展示原静态功能，不能运行管理员后台或数据�
 ## 中国大陆单机部署适配（未部署）
 
 预算上限50元/月，目标腾讯云大陆2核2GB，实际价格与续费需购买前核实，超过预算停止。新增显式生产SQLite持久路径、Nginx本机可信代理、systemd与日志轮转模板，以及一致性备份/新文件恢复验证。无额外数据库或面板月租；AI保持关闭，无收费调用。详见 [deploy/china/README.md](deploy/china/README.md)。本分支未购买、未公开部署、未合并；原Vercel文档仅为保留的可选方案。
+
+## 工程整合检查点
+
+整合分支基于 Preview 0.1，静态发布源保持不变。变更、测试边界与回滚说明见 [docs/integration-validation.md](docs/integration-validation.md)。生产迁移确认参数仅防止误执行，不替代备份、权限和目标核对。
