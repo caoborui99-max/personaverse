@@ -1,0 +1,33 @@
+[Unit]
+Description=PersonaVerse single-server Node service
+After=network.target
+
+[Service]
+Type=simple
+User=personaverse
+Group=personaverse
+WorkingDirectory=/opt/personaverse/current
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=/etc/personaverse/app.env
+ExecStart=/usr/bin/env node scripts/start-single-server.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+StateDirectory=personaverse
+StateDirectoryMode=0700
+LogsDirectory=personaverse
+LogsDirectoryMode=0700
+StandardOutput=append:/var/log/personaverse/app.log
+StandardError=append:/var/log/personaverse/error.log
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/personaverse /var/log/personaverse
+RestrictSUIDSGID=true
+MemoryMax=768M
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target
