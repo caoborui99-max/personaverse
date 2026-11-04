@@ -1,13 +1,5 @@
 import {ApiError,json,readJson,sha256} from './security.js';
 import {aiConfiguration,createProvider} from './ai-provider.js';
-export const chatSchema=`
-CREATE TABLE IF NOT EXISTS ai_threads(id TEXT PRIMARY KEY,owner TEXT NOT NULL,persona_id TEXT NOT NULL,history TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS ai_requests(id TEXT PRIMARY KEY,owner TEXT NOT NULL,fingerprint TEXT NOT NULL,status TEXT NOT NULL,response TEXT);
-CREATE TABLE IF NOT EXISTS ai_budget(day TEXT PRIMARY KEY,calls INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS ai_rates(owner TEXT PRIMARY KEY,bucket TEXT NOT NULL,calls INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS ai_locks(owner TEXT PRIMARY KEY,request_id TEXT NOT NULL,expires_at TEXT NOT NULL);
-CREATE INDEX IF NOT EXISTS ai_threads_owner ON ai_threads(owner,persona_id);
-`;
 const uuid=x=>typeof x==='string'&&/^[a-zA-Z0-9-]{8,80}$/.test(x);
 function cap(value,fallback,max){const n=Number(value);return Number.isInteger(n)&&n>=1?Math.min(n,max):fallback;}
 export async function handleChat(request,env,db,user,options={}){

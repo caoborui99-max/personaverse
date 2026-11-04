@@ -6,6 +6,7 @@ with tempfile.TemporaryDirectory(prefix='cn-proxy-',dir=root/'.local') as tmp:
  with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
  env={**os.environ,'PORT':str(port),'NODE_ENV':'production','DATABASE_DRIVER':'sqlite','SQLITE_PATH':str(Path(tmp)/'db.sqlite'),'APP_ORIGIN':'https://test.example','TRUST_PROXY':'loopback','ADMIN_EMAIL':'admin@example.test','ADMIN_PASSWORD':secrets.token_hex(24),'AI_ENABLED':'false'}
  for k in ['AI_API_KEY','DATABASE_URL','VERCEL']:env.pop(k,None)
+ subprocess.run(['node','scripts/migrate.js']+(['--confirm-production'] if env.get('NODE_ENV')=='production' else []),cwd=root,env=env,check=True,stdout=subprocess.DEVNULL)
  with open(Path(tmp)/'server.log','w') as log:
   proc=subprocess.Popen(['node','scripts/start-single-server.js'],cwd=root,env=env,stdout=log,stderr=log)
   def request(path,body=None,headers=None):

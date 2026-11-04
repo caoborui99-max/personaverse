@@ -4,13 +4,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import api from '../api/index.js';
 import {validateServerEnvironment} from '../server/deployment.js';
-import { getDatabase, migrateDatabase, closeDatabases } from '../server/database.js';
-import { initializeData } from '../server/handler.js';
+import { getDatabase, assertDatabaseReady, closeDatabases } from '../server/database.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 validateServerEnvironment(process.env);
-const db = await getDatabase(process.env);
-await migrateDatabase(db);
-await initializeData(db);
+const db = await getDatabase(process.env, { mustExist: true });
+try { await assertDatabaseReady(db); }
+catch (error) { await closeDatabases(); throw error; }
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp' };
 const pages = new Set(['/index.html', '/persona.html', '/admin.html', '/chat.html']);
 const server = http.createServer(async (req, res) => {

@@ -65,3 +65,23 @@ test('build never connects to a configured database and leaves static preview un
 test('production migration CLI refuses to connect without explicit confirmation', async () => {
   await assert.rejects(execute(process.execPath,['scripts/migrate.js'],{env:{PATH:process.env.PATH,NODE_ENV:'production',AI_ENABLED:'false'},encoding:'utf8',timeout:5000}), error => error.code === 1 && /--confirm-production/.test(error.stderr));
 });
+
+
+test('startup refuses legacy schema without performing migration or seed writes', async () => {
+  const dir=await mkdtemp(join(tmpdir(),'pv-startup-'));
+  const env={PATH:process.env.PATH,SQLITE_PATH:join(dir,'old.sqlite'),NODE_ENV:'test',AI_ENABLED:'false'};
+  try {
+    const db=await getDatabase(env);
+    const schema=await readFile(new URL('../db/migrations/0001.sql',import.meta.url),'utf8');
+    await db.batch(schema.replace(/^--.*$/gm,'').split(';').map(s=>s.trim()).filter(Boolean).map(sql=>db.prepare(sql)));
+    await db.prepare("INSERT INTO settings(key,value) VALUES ('preserved','unchanged')").run();
+    const before=(await db.prepare("SELECT name,sql FROM sqlite_master ORDER BY name").all()).results;
+    await assert.rejects(execute(process.execPath,['scripts/dev-server.js'],{env,timeout:5000}),e=>e.code===1&&/MIGRATION_REQUIRED/.test(e.stderr));
+    assert.deepEqual((await db.prepare("SELECT name,sql FROM sqlite_master ORDER BY name").all()).results,before);
+    assert.equal((await db.prepare('SELECT count(*) AS n FROM personas').first()).n,0);
+    assert.equal((await db.prepare("SELECT value FROM settings WHERE key='preserved'").first()).value,'unchanged');
+    await execute(process.execPath,['scripts/migrate.js'],{env,timeout:5000});
+    assert.equal((await db.prepare('SELECT count(*) AS n FROM schema_migrations').first()).n,4);
+    assert.equal((await db.prepare('SELECT count(*) AS n FROM personas').first()).n,12);
+  } finally {await closeDatabases();await rm(dir,{recursive:true,force:true});}
+});

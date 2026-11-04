@@ -11,6 +11,7 @@ with tempfile.TemporaryDirectory(prefix='pv-browser-') as tmp:
  base=f'http://127.0.0.1:{port}';password=secrets.token_hex(24)
  env={**os.environ,'PORT':str(port),'SQLITE_PATH':str(Path(tmp)/'test.sqlite'),'ADMIN_EMAIL':'admin@example.test','ADMIN_PASSWORD':password,'NODE_ENV':'test','AI_ENABLED':'false'}
  env.pop('DATABASE_URL',None);env.pop('VERCEL',None);env.pop('AI_API_KEY',None);env.pop('APP_ORIGIN',None)
+ subprocess.run(['node','scripts/migrate.js']+(['--confirm-production'] if env.get('NODE_ENV')=='production' else []),cwd=root,env=env,check=True,stdout=subprocess.DEVNULL)
  with open(Path(tmp)/'server.log','w') as log:
   server=subprocess.Popen(['node','scripts/dev-server.js'],cwd=root,env=env,stdout=log,stderr=log)
   try:
@@ -37,6 +38,13 @@ with tempfile.TemporaryDirectory(prefix='pv-browser-') as tmp:
     page.locator('#list article').get_by_role('button',name='上架',exact=True).click();expect(page.locator('#list article')).to_contain_text('published')
     page.once('dialog',lambda d:d.accept());page.locator('#list article').get_by_role('button',name='删除',exact=True).click();expect(page.locator('#list article')).to_have_count(0)
     print('PASS 2: admin create/edit/publish/unpublish/delete and reload',flush=True)
+    page.locator('#core-panel summary').click();page.locator('#core-reload').click();expect(page.locator('#core-content')).to_have_value('');expect(page.locator('#core-state')).to_contain_text('尚未发布')
+    page.locator('#core-content').fill('管理员浏览器测试夹具');page.locator('#core-save').click();expect(page.locator('#core-notice')).to_have_text('草稿已保存，尚未发布。')
+    page.once('dialog',lambda d:d.accept());page.locator('#core-publish').click();expect(page.locator('#core-notice')).to_have_text('核心已发布，当前未接入真实AI。');expect(page.locator('#core-versions article')).to_have_count(1)
+    page.reload();expect(page.locator('#panel')).to_be_visible();page.locator('#core-panel summary').click();page.locator('#core-reload').click();expect(page.locator('#core-content')).to_have_value('管理员浏览器测试夹具')
+    page.locator('#core-content').fill('第二个管理员测试夹具');page.locator('#core-save').click();expect(page.locator('#core-notice')).to_have_text('草稿已保存，尚未发布。');page.once('dialog',lambda d:d.accept());page.locator('#core-publish').click();expect(page.locator('#core-versions article')).to_have_count(2)
+    page.once('dialog',lambda d:d.accept());page.locator('#core-versions article').last.get_by_role('button').click();expect(page.locator('#core-notice')).to_have_text('已回滚生效版本。');expect(page.locator('#core-content')).to_have_value('第二个管理员测试夹具')
+    print('PASS 6: manual Soul Core draft/publish/reload/rollback',flush=True)
     target=page.evaluate('''async()=>{const d=await fetch('/api/admin/personas').then(r=>r.json());let last;for(let i=0;i<13;i++){const r=await fetch('/api/admin/personas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'分页角色'+i,description:'测试',categoryId:d.categories[0].id,systemPrompt:'原创',status:'published',sortOrder:100+i})});if(!r.ok)throw Error(await r.text());last=(await r.json()).persona.id;}return last;}''')
     page.goto(base+'/');expect(page.locator('#results .persona-card')).to_have_count(12);page.get_by_role('button',name='下一页',exact=True).click();expect(page.locator('#catalog-pagination span')).to_have_text('第 2 / 3 页')
     page.goto(base+'/persona.html?id='+target);expect(page.locator('.detail-title h1')).to_contain_text('分页角色12');page.locator('.detail-save').click();page.goto(base+'/index.html?view=favorites');expect(page.locator('#results .persona-card')).to_have_count(1)
@@ -48,7 +56,7 @@ with tempfile.TemporaryDirectory(prefix='pv-browser-') as tmp:
      for route in ['index.html','admin.html','persona.html?id='+target,'chat.html?id='+target]:
       page.goto(base+'/'+route);page.wait_for_timeout(150);assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(width,route)
     assert not errors,errors
-    page.goto(base+'/admin.html');expect(page.locator('#panel')).to_be_visible();page.locator('#logout').click();expect(page.locator('#login')).to_be_visible();assert page.evaluate("fetch('/api/admin/personas').then(r=>r.status)")==401
+    page.goto(base+'/admin.html');expect(page.locator('#panel')).to_be_visible();page.locator('#logout').click();expect(page.locator('#login')).to_be_visible();expect(page.locator('#core-content')).to_have_value('');assert page.evaluate("fetch('/api/admin/personas').then(r=>r.status)")==401
     print('PASS 5: four viewports/no script errors/logout authorization',flush=True);b.close()
   finally:
    server.terminate()

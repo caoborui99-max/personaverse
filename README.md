@@ -4,7 +4,7 @@
 
 ## 本地运行
 
-Node.js 24 推荐。执行 `npm install`，复制 `.env.example` 为 `.env`，填写 `ADMIN_EMAIL` 和至少12字符的 `ADMIN_PASSWORD`，再执行 `npm run dev`。打开 http://127.0.0.1:8000，后台 `/admin.html`。本地 SQLite 保存在 `.local/personaverse.sqlite`；重启、刷新和重新构建不覆盖现有资料。不要删除该数据库文件。
+Node.js 24 推荐。执行 `npm install`，复制 `.env.example` 为 `.env`，填写 `ADMIN_EMAIL` 和至少12字符的 `ADMIN_PASSWORD`，先执行 `npm run db:migrate`，再执行 `npm run dev`。打开 http://127.0.0.1:8000，后台 `/admin.html`。本地 SQLite 保存在 `.local/personaverse.sqlite`；重启、刷新和重新构建不覆盖现有资料。不要删除该数据库文件。
 
 验证命令：`npm test`、`node tests/mvp.test.js`、`npm run build`。浏览器复现：安装 Python Playwright 与 Chromium 后运行 `python3 tests/browser_smoke.py`；可通过 `CHROMIUM_PATH` 指定浏览器。脚本使用临时数据库和随机测试密码，退出会关闭测试服务。它是 Chromium 手机尺寸模拟，不是实体 iPhone Safari 认证。无 TypeScript，不存在类型检查命令。旧版静态操作说明保留在 docs/static-v1.md。
 
@@ -28,7 +28,7 @@ GitHub Pages 只能展示原静态功能，不能运行管理员后台或数据�
 ## 第一阶段已验收范围
 
 - 数据库动态查询：搜索 q、分类 category、排序 recommended/name、page/limit 分页（每次最多100条），后台另支持状态过滤；首页默认12条、后台默认20条。详情按独立ID读取，不依赖当前分页。
-- 查询索引与角色变更在同一事务更新；SQLite 旧 MVP 数据及早期缺少公开状态列的索引会兼容升级。仅通过 `npm run db:migrate` 或现有 Node 启动入口迁移，构建不迁移；不要手工只运行一份 SQL 就假定全部兼容逻辑完成。
+- 查询索引与角色变更在同一事务更新；SQLite 旧 MVP 数据及早期缺少公开状态列的索引会兼容升级。仅通过独立的 `npm run db:migrate` 迁移；启动和构建均不迁移；不要手工只运行一份 SQL 就假定全部兼容逻辑完成。
 - 后台管理名称、头像地址、简介、背景、性格、语言风格、标签、精选、提示词复制权限、公开/私人、草稿/上架/下架，删除为软删除。前端收藏仍是本浏览器本地收藏。
 - 保留12个原创初始人格，不在每次部署时覆盖管理员资料。`js/personas.js` 仅为明确标注的原版静态预览回退；新建人格从数据库读取，不需要改前端或重新部署。
 - `/chat.html?id=...` 为固定文案演示，不调用任何模型；内容仅存当前页面内存，刷新即清空，不能当作真实聊天历史。未配置服务端时演示人格无法加载，会明确提示。
@@ -52,3 +52,9 @@ GitHub Pages 只能展示原静态功能，不能运行管理员后台或数据�
 ## 工程整合检查点
 
 整合分支基于 Preview 0.1，静态发布源保持不变。变更、测试边界与回滚说明见 [docs/integration-validation.md](docs/integration-validation.md)。生产迁移确认参数仅防止误执行，不替代备份、权限和目标核对。
+
+## Soul Core 最小架构（未接真实 AI）
+
+所有数据库人格自动关联唯一 `shared` 核心，独立 ID、背景、性格和提示词保留。初始草稿严格为空，无已发布版本。管理员登录后台后展开“共享 Soul Core”，点击载入，手动编辑并保存草稿；发布和回滚需再次确认。普通访客没有读取核心原文的接口。
+
+启动现在只检查数据库就绪，不自动建表或初始化。新库和旧库必须先单独迁移：本地 `npm run db:migrate`；生产标记下需在备份、核对目标后显式 `npm run db:migrate -- --confirm-production`，本轮没有执行生产迁移。已执行的 SQL 文件不得修改；校验和不匹配会拒绝启动/API。详见 [Soul Core 验收与迁移说明](docs/soul-core-validation.md)。共享核心仅建立数据引用，尚未加入模型请求；AI 保持关闭。

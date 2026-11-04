@@ -1,5 +1,6 @@
+import { handleSoulCore } from './soul-core.js';
 import {handleChat} from './ai-chat.js';
-import { getDatabase } from './database.js';
+import { getDatabase, assertDatabaseReady } from './database.js';
 import { ApiError, json, readJson, requireSameOrigin } from './security.js';
 import { getIdentity, handleAuth } from './auth.js';
 import { seedPersonas } from './seed-data.js';
@@ -8,6 +9,7 @@ const categorySeeds = ['情感陪伴', '效率工具', '学习成长', '创意�
 const accents = ['purple', 'cyan', 'rose', 'amber', 'green', 'blue'];
 const icons = ['moon', 'spark', 'compass', 'pen', 'code', 'book', 'coffee', 'music', 'leaf', 'planet'];
 const marker = 'catalog_seed_v1';
+function coreLink(db,id) { return db.prepare("INSERT INTO persona_core_links(persona_id,core_id) VALUES (?,'shared') ON CONFLICT(persona_id) DO NOTHING").bind(id); }
 function catalogStatement(db,p) {
   return db.prepare('INSERT INTO persona_catalog(id,name,search_text,category_id,featured,is_public) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,search_text=excluded.search_text,category_id=excluded.category_id,featured=excluded.featured,is_public=excluded.is_public').bind(p.id,p.name,[p.name,p.englishName,p.description,p.tagline,...(p.tags||[])].join(' ').toLowerCase(),p.categoryId||'',p.featured?1:0,p.isPublic===false?0:1);
 }
@@ -17,6 +19,8 @@ export async function initializeData(db) {
   if(reindex){const rows=(await db.prepare('SELECT id,data,status,sort_order FROM personas').all()).results;await db.batch([...rows.map(row=>catalogStatement(db,record(row))),db.prepare("DELETE FROM settings WHERE key='catalog_visibility_reindex'")]);}
   const missing=(await db.prepare('SELECT p.id,p.data,p.status,p.sort_order FROM personas p LEFT JOIN persona_catalog c ON c.id=p.id WHERE c.id IS NULL').all()).results;
   if(missing.length) await db.batch(missing.map(row=>catalogStatement(db,record(row))));
+  // Explicit initialization repairs missing links (e.g. after an application rollback), never edits profiles.
+  await db.prepare("INSERT INTO persona_core_links(persona_id,core_id) SELECT id,'shared' FROM personas WHERE 1=1 ON CONFLICT(persona_id) DO NOTHING").run();
   if (await db.prepare('SELECT value FROM settings WHERE key=?').bind(marker).first()) return;
   const statements = categorySeeds.map((name, index) => db.prepare('INSERT INTO categories(id,name,sort_order) SELECT ?,?,? WHERE NOT EXISTS (SELECT 1 FROM settings WHERE key=?) ON CONFLICT(id) DO NOTHING').bind('category-' + index, name, index, marker));
   for (const [index, p] of seedPersonas.entries()) {
@@ -26,6 +30,7 @@ export async function initializeData(db) {
   }
   statements.push(db.prepare('INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO NOTHING').bind(marker, new Date().toISOString()));
   await db.batch(statements);
+  await db.prepare("INSERT INTO persona_core_links(persona_id,core_id) SELECT id,'shared' FROM personas WHERE 1=1 ON CONFLICT(persona_id) DO NOTHING").run();
   const rows=(await db.prepare('SELECT id,data,status,sort_order FROM personas').all()).results;
   if(rows.length) await db.batch(rows.map(row=>catalogStatement(db,record(row))));
 }
@@ -58,6 +63,7 @@ async function listing(request,db,cats,admin) {
  return json({personas:rows.results.map(row=>admin?record(row):publicPersona(record(row),cats)),categories:cats,total:Number(count.total),page,limit,pages:Math.ceil(Number(count.total)/limit),databaseReady:true,chatConfigured:false});
 }
 function validated(input, previous, cats) {
+  if (Object.hasOwn(input, 'coreId') || Object.hasOwn(input, 'core_id')) throw new ApiError(400,'CORE_MANAGED','共享核心由服务器自动关联，不能由客户端修改。');
   const p = previous ? { ...previous } : { id: 'persona-' + crypto.randomUUID(), name: '', englishName: '', description: '', tagline: '', avatarUrl: '', categoryId: '', tags: [], icon: 'planet', accent: 'purple', systemPrompt: '', background:'',personality:'',languageStyle:'',creator:'admin',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),isPublic:true,pricing:'free',usageCount:0,favoriteCount:0, welcomeMessage: '', starters: [], exampleQuestions: [], status: 'draft', sortOrder: 0, featured: false, copyEnabled: false };
   const limits = { name: 80, englishName: 80, description: 2000, tagline: 160, avatarUrl: 2000, categoryId: 100, systemPrompt: 20000, welcomeMessage: 2000, background: 6000, personality: 2000, languageStyle: 1000 };
   for (const [key, max] of Object.entries(limits)) if (Object.hasOwn(input, key)) {
@@ -86,7 +92,7 @@ export async function handleApi(request, env = {}, options = {}) {
     requireSameOrigin(request);
     const path = new URL(request.url).pathname.replace(/\/$/, '');
     let db;
-    try { db = await getDatabase(env); }
+    try { db = await getDatabase(env, { mustExist: true }); await assertDatabaseReady(db); }
     catch (error) {
     if (path === '/api/session') return json({ user: null, auth: { provider: 'local', registrationEnabled: false }, config: { databaseReady: false, chatConfigured: false }, error: { code: error.code || 'DATABASE_NOT_CONFIGURED', message: '请先配置持久化数据库。' } });
       throw error;
@@ -97,6 +103,7 @@ export async function handleApi(request, env = {}, options = {}) {
     if (path === '/api/session' && request.method === 'GET') return json({ user, auth: { provider: 'local', registrationEnabled: false }, config: { databaseReady: true, chatConfigured: false, adminConfigured: !!env.ADMIN_EMAIL && String(env.ADMIN_PASSWORD || '').length >= 12 } });
     const admin = path === '/api/admin/personas' || path.startsWith('/api/admin/');
     if (admin && user?.role !== 'admin') throw new ApiError(401, 'ADMIN_REQUIRED', '请先使用管理员账号登录。');
+    const coreResponse = await handleSoulCore(request,db,user); if(coreResponse)return coreResponse;
     const cats = await categories(db);
     if (path === '/api/personas' && request.method === 'GET') {
       return await listing(request,db,cats,false);
@@ -113,7 +120,7 @@ export async function handleApi(request, env = {}, options = {}) {
       }
       if (request.method === 'POST') {
         const p = validated(await readJson(request), null, cats);
-        await db.batch([db.prepare('INSERT INTO personas(id,data,status,sort_order) VALUES (?,?,?,?)').bind(p.id, JSON.stringify(p), p.status, p.sortOrder),catalogStatement(db,p)]);
+        await db.batch([db.prepare('INSERT INTO personas(id,data,status,sort_order) VALUES (?,?,?,?)').bind(p.id, JSON.stringify(p), p.status, p.sortOrder),catalogStatement(db,p),coreLink(db,p.id)]);
         return json({ persona: p }, 201);
       }
     }
