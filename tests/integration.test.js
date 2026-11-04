@@ -85,3 +85,16 @@ test('startup refuses legacy schema without performing migration or seed writes'
     assert.equal((await db.prepare('SELECT count(*) AS n FROM personas').first()).n,12);
   } finally {await closeDatabases();await rm(dir,{recursive:true,force:true});}
 });
+
+test('independent name CLI creates review-only plan and refuses unconfirmed production apply', async () => {
+ const dir=await mkdtemp(join(tmpdir(),'pv-name-cli-'));
+ const env={PATH:process.env.PATH,SQLITE_PATH:join(dir,'test.sqlite'),NODE_ENV:'test',AI_ENABLED:'false'};
+ try {
+  const db=await getDatabase(env);await migrateDatabase(db);await initializeData(db);
+  const planFile=join(dir,'plan.json');await execute(process.execPath,['scripts/rename-personas.js','--plan',planFile],{env,timeout:5000});
+  const plan=JSON.parse(await readFile(planFile,'utf8'));assert.equal(plan.kind,'persona-names-v1');assert.equal(plan.items.length,0);
+  await assert.rejects(execute(process.execPath,['scripts/rename-personas.js','--apply',planFile],{env:{...env,NODE_ENV:'production'},timeout:5000}),e=>e.code===1&&e.stderr.includes('PRODUCTION_CONFIRMATION_REQUIRED'));
+  await execute(process.execPath,['scripts/rename-personas.js','--apply',planFile],{env,timeout:5000});
+  assert.equal((await db.prepare("SELECT count(*) AS n FROM settings WHERE key LIKE 'persona_names_v1:%'").first()).n,0);
+ }finally{await closeDatabases();await rm(dir,{recursive:true,force:true});}
+});

@@ -1,0 +1,214 @@
+[
+  {
+    "id": "moonlight",
+    "oldName": "月白",
+    "newName": "晚柠",
+    "index": 0,
+    "oldHash": "9ac6e09ccbe9f8c2be6f011406bf8fdfa8fe35c72e12019ea9ad0a7a8d082b05",
+    "newHash": "6f1a5a232a0b55d7e8f6924cb20c4e5c61750ee7b94ba3e9aaa71d7e23459c09",
+    "rules": [
+      [
+        "你是「月白」",
+        "你是「晚柠」"
+      ],
+      [
+        "我是月白。",
+        "我是晚柠。"
+      ]
+    ]
+  },
+  {
+    "id": "muse",
+    "oldName": "灵感缪斯",
+    "newName": "MIRA",
+    "index": 1,
+    "oldHash": "4e26c0503da2eddd7bad56c4ee317eb6b3f353df959fcc9bfe6656f1d7aa9f05",
+    "newHash": "e8d470c62e1212ca343d007c63287145e6cf73694370508139b697c4f4e1b7de",
+    "rules": [
+      [
+        "你是「灵感缪斯」",
+        "你是「MIRA」"
+      ],
+      [
+        "我是灵感缪斯。",
+        "我是MIRA。"
+      ]
+    ]
+  },
+  {
+    "id": "mentor",
+    "oldName": "深度导师",
+    "newName": "零序",
+    "index": 2,
+    "oldHash": "a5b86a1cb0dc3a03f095fc54eb1863ff5e7d595f1fb4361a7cc53c900a365c6b",
+    "newHash": "175e93a568f17a12bf929e6aad4816bb936b18099bbf7c449e851cfaa982de95",
+    "rules": [
+      [
+        "你是「深度导师」",
+        "你是「零序」"
+      ],
+      [
+        "我是深度导师。",
+        "我是零序。"
+      ]
+    ]
+  },
+  {
+    "id": "code-pilot",
+    "oldName": "代码领航员",
+    "newName": "KAI-07",
+    "index": 3,
+    "oldHash": "f1d227328e023898ba03d6a6bae103e02cfe523cc70835a9bdef4e74ecfb54a3",
+    "newHash": "12c7743479b99de9dc33a516cca4caba49238bf016b55096f9aef8643f079aa4",
+    "rules": [
+      [
+        "你是「代码领航员」",
+        "你是「KAI-07」"
+      ],
+      [
+        "我是代码领航员。",
+        "我是KAI-07。"
+      ]
+    ]
+  },
+  {
+    "id": "focus-planner",
+    "oldName": "秩序规划师",
+    "newName": "阿序",
+    "index": 4,
+    "oldHash": "c536b08b1eb28cd30abe289d89a48d63b7e88e505386f3d0de4902eab9f789d0",
+    "newHash": "7e08051e8089e48481229660f973e73bd951d3f059526913e91d18ca3bec63ca",
+    "rules": [
+      [
+        "你是「秩序规划师」",
+        "你是「阿序」"
+      ],
+      [
+        "我是秩序规划师。",
+        "我是阿序。"
+      ]
+    ]
+  },
+  {
+    "id": "english-friend",
+    "oldName": "英语漫游者",
+    "newName": "洛伊",
+    "index": 5,
+    "oldHash": "0c841afd135c02c6fd9761e0f86ae19fa2ffbec89166982699703f2043e81add",
+    "newHash": "56855b7606590053f614bb040913a5a6baa1dce34249a9ee65b16f626ffbfb19",
+    "rules": [
+      [
+        "你是「英语漫游者」",
+        "你是「洛伊」"
+      ],
+      [
+        "我是英语漫游者。",
+        "我是洛伊。"
+      ]
+    ]
+  },
+  {
+    "id": "career-compass",
+    "oldName": "职业罗盘",
+    "newName": "北辰",
+    "index": 6,
+    "oldHash": "d476657a1e39949450fc34271f49597985563b0435465060523188e90e1d34c7",
+    "newHash": "ca19bf01fb4bc805ed36092e0762e9eeac50a59e422ebf0fe5a4682816532b8b",
+    "rules": [
+      [
+        "你是「职业罗盘」",
+        "你是「北辰」"
+      ],
+      [
+        "我是职业罗盘。",
+        "我是北辰。"
+      ]
+    ]
+  },
+  {
+    "id": "story-weaver",
+    "oldName": "织梦人",
+    "newName": "弦月",
+    "index": 7,
+    "oldHash": "0dd86b8ac7584ccb9e0ddf110e27a9dc5a0240e947bbd44f57c2ebef67cdac65",
+    "newHash": "2c08b958419dd2062574f158ddc3590ff6dc2d292889b176343709206e4ae950",
+    "rules": [
+      [
+        "你是「织梦人」",
+        "你是「弦月」"
+      ],
+      [
+        "我是织梦人。",
+        "我是弦月。"
+      ]
+    ]
+  },
+  {
+    "id": "quiet-garden",
+    "oldName": "慢慢",
+    "newName": "小满",
+    "index": 8,
+    "oldHash": "2ff8c08a80f37e3a9f72410f0e85f793cf5be878378ab1f921e22d2fe94bf4e3",
+    "newHash": "3014fff011c58c89590e32dba0557bfd486985267ab28236a051b0743b5875d9",
+    "rules": [
+      [
+        "你是「慢慢」",
+        "你是「小满」"
+      ],
+      [
+        "我是慢慢。",
+        "我是小满。"
+      ]
+    ]
+  },
+  {
+    "id": "cosmic-traveler",
+    "oldName": "星际旅人",
+    "newName": "NOVA",
+    "index": 9,
+    "oldHash": "018376c017e01b18fd9c40be40243ed74ca86104bc581036ec1193efcbb173ac",
+    "newHash": "25f8399dcf53daa94f4d0b8a192f0abdd7ed4b139eff393ca2fbd55531c37efc",
+    "rules": [
+      [
+        "你是「星际旅人」",
+        "你是「NOVA」"
+      ],
+      [
+        "我是星际旅人。",
+        "我是NOVA。"
+      ]
+    ]
+  },
+  {
+    "id": "record-store",
+    "oldName": "午夜唱片店",
+    "newName": "黑胶先生",
+    "index": 10,
+    "oldHash": "13b76bc65e384a1c648dabe7f8c9eb1e4893336bea7a2fb6d2dcb622e48885d5",
+    "newHash": "ac0924e7848cb1475a598f087c0e1ced45b75de86dd040edbe7d8ef85291211d",
+    "rules": [
+      [
+        "你是「午夜唱片店」的虚构店主",
+        "你是「黑胶先生」，「午夜唱片店」的虚构店主"
+      ]
+    ]
+  },
+  {
+    "id": "clear-writer",
+    "oldName": "文字工坊",
+    "newName": "砚白",
+    "index": 11,
+    "oldHash": "9b119f554b18917d28a62b9bb19757e1ee81b57d6afb2dee26a5cb7d27a4231d",
+    "newHash": "482ace5541438ca1695c3a315fb4468cedbee262a5c8a8ad17e41d1a597982dd",
+    "rules": [
+      [
+        "你是「文字工坊」",
+        "你是「砚白」"
+      ],
+      [
+        "我是文字工坊。",
+        "我是砚白。"
+      ]
+    ]
+  }
+]

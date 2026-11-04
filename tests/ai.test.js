@@ -18,7 +18,7 @@ test('AI gate, admin-only access and client prompt rejection never invoke provid
  assert.equal((await call('ai/chat',{personaId:'moonlight',message:'a'.repeat(1001),requestId:randomUUID()})).r.status,400);assert.equal(calls.length,0);
 }));
 test('Mock multi-turn uses DB persona, persists history, deduplicates and caps daily calls',()=>fixture(async({call,calls,env,db,advanceDay,advanceMinute})=>{
- const first={personaId:'moonlight',message:'第一轮',requestId:randomUUID()};const a=await call('ai/chat',first);assert.equal(a.r.status,200,JSON.stringify(a.data));assert.equal(calls.length,1);assert.ok(calls[0][0].content.includes('月白'));assert.equal(calls[0][0].role,'system');
+ const first={personaId:'moonlight',message:'第一轮',requestId:randomUUID()};const a=await call('ai/chat',first);assert.equal(a.r.status,200,JSON.stringify(a.data));assert.equal(calls.length,1);assert.ok(calls[0][0].content.includes('晚柠'));assert.equal(calls[0][0].role,'system');
  const duplicate=await call('ai/chat',first);assert.deepEqual(duplicate.data,a.data);assert.equal(calls.length,1);
  advanceDay();
  const b=await call('ai/chat',{personaId:'moonlight',threadId:a.data.threadId,message:'第二轮',requestId:randomUUID()});assert.equal(b.r.status,200);assert.equal(calls.length,2);assert.ok(calls[1].some(m=>m.role==='assistant'&&m.content==='Mock provider test output'));
