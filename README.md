@@ -1,5 +1,13 @@
 # 人格宇宙 PersonaVerse MVP
 
+## 当前上线准备分支（尚未部署）
+
+本轮基于 `phase3/deepseek-minimum-test` 的 `c8d50927f295af97f1bf3ec8a7fdf410b90239a8` 继续修复，不重建网站、不合并 main。当前前端12个人格与服务端种子完全一致；历史 `preview-dist`、`docs/preview` 及旧 Sites 仍保留原版。
+
+主站聊天页已改为只显示 Provider 的真实返回：AI 未开启时禁止发送，不生成固定示例。管理员隔离模式仍是默认设置；另增显式 `AI_CHAT_ACCESS=public` 的访客会话，必须同时具备 `AI_ENABLED=true` 和完整服务端 Provider 配置才可聊天。仅网页加载、创建会话不会请求模型。密钥不进入前端或构建产物。
+
+上线方案、权限/限额、免费方案边界、首次实连审批与后续 GitHub 自动更新步骤见 [上线准备与验收](docs/release-preparation.md)。`vercel.json` 当前禁止 Git 自动部署，等待明确批准后才开启；CI 只运行离线检查。以下原阶段说明为历史记录，不能视为本分支已上线或仍采用模拟聊天。
+
 保留原生 HTML/CSS/JavaScript 首页、人格卡片、搜索、收藏、详情和提示词复制。新增管理员人格新增、编辑、上架、下架与软删除。增加明确标注的固定文案演示聊天；没有接入真实 AI、支付或会员。
 
 ## 本地运行

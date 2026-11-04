@@ -1,5 +1,6 @@
 import { handleSoulCore } from './soul-core.js';
 import {handleChat} from './ai-chat.js';
+import {aiConfiguration} from './ai-provider.js';
 import { getDatabase, assertDatabaseReady } from './database.js';
 import { ApiError, json, readJson, requireSameOrigin } from './security.js';
 import { getIdentity, handleAuth } from './auth.js';
@@ -46,7 +47,7 @@ function publicPersona(p, cats) {
   if (p.copyEnabled === true) safe.prompt = p.systemPrompt;
   return safe;
 }
-async function listing(request,db,cats,admin) {
+async function listing(request,db,cats,admin,chatConfigured) {
  const u=new URL(request.url), q=(u.searchParams.get('q')||'').trim().toLowerCase(),category=u.searchParams.get('category')||'',sort=u.searchParams.get('sort')||'recommended';
  const page=Number(u.searchParams.get('page')||1),limit=Number(u.searchParams.get('limit')||12);
  if(!['recommended','name'].includes(sort))throw new ApiError(400,'INVALID_SORT','排序方式无效。');
@@ -60,7 +61,7 @@ async function listing(request,db,cats,admin) {
  const count=await db.prepare('SELECT COUNT(*) AS total'+sql).bind(...params).first();
  const order=sort==='name'?'c.name,p.id':'c.featured DESC,p.sort_order,p.id';
  const rows=await db.prepare('SELECT p.id,p.data,p.status,p.sort_order'+sql+' ORDER BY '+order+' LIMIT ? OFFSET ?').bind(...params,limit,(page-1)*limit).all();
- return json({personas:rows.results.map(row=>admin?record(row):publicPersona(record(row),cats)),categories:cats,total:Number(count.total),page,limit,pages:Math.ceil(Number(count.total)/limit),databaseReady:true,chatConfigured:false});
+ return json({personas:rows.results.map(row=>admin?record(row):publicPersona(record(row),cats)),categories:cats,total:Number(count.total),page,limit,pages:Math.ceil(Number(count.total)/limit),databaseReady:true,chatConfigured});
 }
 function validated(input, previous, cats) {
   if (Object.hasOwn(input, 'coreId') || Object.hasOwn(input, 'core_id')) throw new ApiError(400,'CORE_MANAGED','共享核心由服务器自动关联，不能由客户端修改。');
@@ -99,24 +100,25 @@ export async function handleApi(request, env = {}, options = {}) {
     }
     const authResponse = await handleAuth(request, env, db, options); if (authResponse) return authResponse;
     const user = await getIdentity(request, env, db, options);
+    const chatConfigured = aiConfiguration(env).mode === 'real';
     const chatResponse=await handleChat(request,env,db,user,options);if(chatResponse)return chatResponse;
-    if (path === '/api/session' && request.method === 'GET') return json({ user, auth: { provider: 'local', registrationEnabled: false }, config: { databaseReady: true, chatConfigured: false, adminConfigured: !!env.ADMIN_EMAIL && String(env.ADMIN_PASSWORD || '').length >= 12 } });
+    if (path === '/api/session' && request.method === 'GET') return json({ user, auth: { provider: 'local', registrationEnabled: false }, config: { databaseReady: true, chatConfigured, adminConfigured: !!env.ADMIN_EMAIL && String(env.ADMIN_PASSWORD || '').length >= 12 } });
     const admin = path === '/api/admin/personas' || path.startsWith('/api/admin/');
     if (admin && user?.role !== 'admin') throw new ApiError(401, 'ADMIN_REQUIRED', '请先使用管理员账号登录。');
     const coreResponse = await handleSoulCore(request,db,user); if(coreResponse)return coreResponse;
     const cats = await categories(db);
     if (path === '/api/personas' && request.method === 'GET') {
-      return await listing(request,db,cats,false);
+      return await listing(request,db,cats,false,chatConfigured);
     }
     const publicMatch = path.match(/^\/api\/personas\/([^/]+)$/);
     if (publicMatch && request.method === 'GET') {
       const p = record(await db.prepare('SELECT id,data,status,sort_order FROM personas WHERE id=? AND status=?').bind(decodeURIComponent(publicMatch[1]), 'published').first());
       if (!p || p.isPublic===false) throw new ApiError(404, 'PERSONA_NOT_FOUND', '人格不存在或尚未上架。');
-      return json({ persona: publicPersona(p, cats), chatConfigured: false });
+      return json({ persona: publicPersona(p, cats), chatConfigured });
     }
     if (path === '/api/admin/personas') {
       if (request.method === 'GET') {
-        return await listing(request,db,cats,true);
+        return await listing(request,db,cats,true,chatConfigured);
       }
       if (request.method === 'POST') {
         const p = validated(await readJson(request), null, cats);

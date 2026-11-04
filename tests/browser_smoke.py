@@ -2,14 +2,17 @@
 Run: python3 tests/browser_smoke.py (Python Playwright and Chromium required).
 Uses only temporary database/random credentials; stops its own server on exit.
 """
-import os, secrets, shutil, socket, subprocess, tempfile, time, urllib.request
+import json, os, secrets, shutil, socket, subprocess, tempfile, time, urllib.request
+from urllib.parse import urlparse
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 root=Path(__file__).resolve().parents[1]
+screenshots=Path(os.environ.get('PV_SCREENSHOT_DIR','/tmp/personaverse-mobile-review'))
+screenshots.mkdir(parents=True,exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='pv-browser-') as tmp:
  with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
  base=f'http://127.0.0.1:{port}';password=secrets.token_hex(24)
- env={**os.environ,'PORT':str(port),'SQLITE_PATH':str(Path(tmp)/'test.sqlite'),'ADMIN_EMAIL':'admin@example.test','ADMIN_PASSWORD':password,'NODE_ENV':'test','AI_ENABLED':'false'}
+ env={'PATH':os.environ['PATH'],'PORT':str(port),'SQLITE_PATH':str(Path(tmp)/'test.sqlite'),'ADMIN_EMAIL':'admin@example.test','ADMIN_PASSWORD':password,'NODE_ENV':'test','AI_ENABLED':'false','AI_CHAT_ACCESS':'admin'}
  env.pop('DATABASE_URL',None);env.pop('VERCEL',None);env.pop('AI_API_KEY',None);env.pop('APP_ORIGIN',None)
  subprocess.run(['node','scripts/migrate.js']+(['--confirm-production'] if env.get('NODE_ENV')=='production' else []),cwd=root,env=env,check=True,stdout=subprocess.DEVNULL)
  with open(Path(tmp)/'server.log','w') as log:
@@ -23,7 +26,10 @@ with tempfile.TemporaryDirectory(prefix='pv-browser-') as tmp:
    with sync_playwright() as p:
     b=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium'),headless=True,args=['--no-sandbox'])
     page=b.new_page(viewport={'width':390,'height':844});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    page.route('**/*',lambda route:route.continue_() if route.request.url.startswith(base+'/') else route.abort())
     page.goto(base+'/');expect(page.locator('#results .persona-card')).to_have_count(12)
+    expect(page.locator('#results')).to_contain_text('晚柠');expect(page.locator('#results')).to_contain_text('KAI-07')
+    page.screenshot(path=str(screenshots/'home-390.png'),full_page=True)
     page.locator('#search').fill('Moonlight');expect(page.locator('#results .persona-card')).to_have_count(1)
     page.locator('#reset-search').click();page.locator('.category-chip[data-category="效率工具"]').click();expect(page.locator('#results .persona-card')).to_have_count(3)
     print('PASS 1: mobile list/search/category',flush=True)
@@ -49,8 +55,30 @@ with tempfile.TemporaryDirectory(prefix='pv-browser-') as tmp:
     page.goto(base+'/');expect(page.locator('#results .persona-card')).to_have_count(12);page.get_by_role('button',name='下一页',exact=True).click();expect(page.locator('#catalog-pagination span')).to_have_text('第 2 / 3 页')
     page.goto(base+'/persona.html?id='+target);expect(page.locator('.detail-title h1')).to_contain_text('分页角色12');page.locator('.detail-save').click();page.goto(base+'/index.html?view=favorites');expect(page.locator('#results .persona-card')).to_have_count(1)
     print('PASS 3: pagination/direct detail/cross-page favorites',flush=True)
-    page.goto(base+'/chat.html?id='+target);expect(page.locator('.demo-note')).to_contain_text('非真实 AI');page.locator('#message').fill('<img src=x onerror=alert(1)>');page.get_by_role('button',name='发送演示消息').click();expect(page.locator('.bubble')).to_have_count(3);expect(page.locator('.bubble.user p')).to_have_text('<img src=x onerror=alert(1)>');expect(page.locator('.bubble img')).to_have_count(0);page.get_by_role('button',name='清空',exact=True).click();expect(page.locator('.bubble')).to_have_count(0)
-    print('PASS 4: explicit demo label/literal input/clear',flush=True)
+    page.goto(base+'/chat.html?id='+target)
+    expect(page.locator('#error')).to_contain_text('站内 AI 尚未开启')
+    expect(page.locator('#send')).to_be_disabled();expect(page.locator('#message')).to_be_disabled()
+    expect(page.locator('.bubble')).to_have_count(0)
+    page.screenshot(path=str(screenshots/'chat-disabled-390.png'),full_page=True)
+    # Explicit local browser fixture. Never contacts a real Provider.
+    def mock_chat(route):
+     path=urlparse(route.request.url).path
+     if path.endswith('/status'):data={'mode':'real','adminRequired':False,'dailyLimit':20,'rateLimit':1}
+     elif path.endswith('/session'):data={'ok':True}
+     elif path.endswith('/chat'):
+      assert route.request.post_data_json['personaId']=='moonlight'
+      data={'threadId':'fixture-browser-thread','message':{'content':'离线界面测试夹具，不是真实 DeepSeek 回复。'},'remaining':19}
+     else:route.abort();return
+     route.fulfill(status=200,content_type='application/json',body=json.dumps(data))
+    page.route('**/api/ai/**',mock_chat)
+    page.goto(base+'/chat.html?id=moonlight');expect(page.locator('#name')).to_have_text('晚柠 · AI 对话')
+    page.locator('#message').fill('<img src=x onerror=alert(1)>');page.locator('#send').click()
+    expect(page.locator('.bubble')).to_have_count(3);expect(page.locator('.bubble.user p')).to_have_text('<img src=x onerror=alert(1)>')
+    expect(page.locator('.bubble img')).to_have_count(0);expect(page.locator('#error')).to_contain_text('19')
+    page.screenshot(path=str(screenshots/'chat-offline-fixture-390.png'),full_page=True)
+    page.locator('#clear').click();expect(page.locator('.bubble')).to_have_count(0)
+    page.unroute('**/api/ai/**',mock_chat)
+    print('PASS 4: disabled AI sends nothing; local fixture renders literal text, quota and new-thread behavior',flush=True)
     for width in [320,390,768,1440]:
      page.set_viewport_size({'width':width,'height':844})
      for route in ['index.html','admin.html','persona.html?id='+target,'chat.html?id='+target]:

@@ -9,7 +9,7 @@ import {seedPersonas} from '../server/seed-data.js';
 import {personaNames,planPersonaNames,applyPersonaNames,profileHash} from '../server/persona-names.js';
 import {getDatabase,migrateDatabase,closeDatabases} from '../server/database.js';
 import {initializeData,handleApi} from '../server/handler.js';
-async function legacy(){const context={window:{}};runInNewContext(await readFile(new URL('../js/personas.js',import.meta.url),'utf8'),context);return JSON.parse(JSON.stringify(context.window.PERSONAS));}
+async function legacy(){const context={window:{}};runInNewContext(await readFile(new URL('../preview-dist/js/personas.js',import.meta.url),'utf8'),context);return JSON.parse(JSON.stringify(context.window.PERSONAS));}
 function profile(p,index){const data={...p,categoryId:'category-'+['情感陪伴','效率工具','学习成长','创意灵感','趣味角色'].indexOf(p.category),avatarUrl:'',systemPrompt:p.prompt,copyEnabled:true,status:'published',sortOrder:index,welcomeMessage:'',exampleQuestions:[]};delete data.prompt;return data;}
 async function fixture(run){const dir=await mkdtemp(join(tmpdir(),'pv-names-'));const env={SQLITE_PATH:join(dir,'test.sqlite'),ADMIN_EMAIL:'owner@example.test',ADMIN_PASSWORD:randomBytes(24).toString('hex'),AI_ENABLED:'false'};try{const db=await getDatabase(env);await migrateDatabase(db);await initializeData(db);await run({db,env});}finally{await closeDatabases();await rm(dir,{recursive:true,force:true});}}
 async function restoreLegacy(db){for(const [i,p] of (await legacy()).entries())await db.prepare('UPDATE personas SET data=? WHERE id=?').bind(JSON.stringify(profile(p,i)),p.id).run();await initializeData(db);}

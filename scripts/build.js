@@ -1,6 +1,7 @@
 import { mkdir, readFile, readdir, cp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import './check-personas.mjs';
 function checkSyntax(file) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, ['--check', file], { stdio: 'inherit', timeout: 30000 });
