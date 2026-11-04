@@ -1,3 +1,5 @@
+> 当前分支的 DeepSeek 隔离测试规则见 [deepseek-isolation-validation.md](deepseek-isolation-validation.md)。现已硬性限制每日/每分钟各1次，环境变量不能放宽；以下 Token Rhythm/Vercel 说明为历史参考，本轮不部署、不调用真实接口。
+
 # 第二阶段最小 AI 测试接口（默认关闭）
 
 ## 边界

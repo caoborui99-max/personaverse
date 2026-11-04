@@ -58,3 +58,7 @@ GitHub Pages 只能展示原静态功能，不能运行管理员后台或数据�
 所有数据库人格自动关联唯一 `shared` 核心，独立 ID、背景、性格和提示词保留。初始草稿严格为空，无已发布版本。管理员登录后台后展开“共享 Soul Core”，点击载入，手动编辑并保存草稿；发布和回滚需再次确认。普通访客没有读取核心原文的接口。
 
 启动现在只检查数据库就绪，不自动建表或初始化。新库和旧库必须先单独迁移：本地 `npm run db:migrate`；生产标记下需在备份、核对目标后显式 `npm run db:migrate -- --confirm-production`，本轮没有执行生产迁移。已执行的 SQL 文件不得修改；校验和不匹配会拒绝启动/API。详见 [Soul Core 验收与迁移说明](docs/soul-core-validation.md)。共享核心仅建立数据引用，尚未加入模型请求；AI 保持关闭。
+
+## DeepSeek 隔离测试检查点
+
+第三阶段基于远程54c07d6继续，真实AI仍关闭，所有验证仅Mock。管理员聊天测试全站每日最多1次、每管理员每UTC分钟最多1次，环境变量不能放宽。Provider最多256输出Token、默认20秒超时、无自动重试，不注入Core。详见 [本轮测试与限制](docs/deepseek-isolation-validation.md)。
