@@ -1,8 +1,8 @@
+import {requestOrigin} from '../server/deployment.js';
 import { handleApi } from '../server/handler.js';
 export default async function handler(req, res) {
   try {
-    const scheme = process.env.VERCEL ? 'https' : 'http';
-    const origin = scheme + '://' + (req.headers.host || 'localhost');
+    const origin = requestOrigin(req,process.env);
     const url = new URL(req.url, origin);
     if (url.searchParams.has('route')) {
       const route = url.searchParams.get('route');
@@ -37,11 +37,11 @@ export default async function handler(req, res) {
     if (cookies.length) res.setHeader('Set-Cookie', cookies);
     res.end(Buffer.from(await response.arrayBuffer()));
   } catch (error) {
-    const status = error?.status === 413 ? 413 : 500;
+    const status = Number.isInteger(error?.status)&&error.status>=400&&error.status<=599?error.status:500;
     res.statusCode = status;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
-    res.end(JSON.stringify({ error: { code: status === 413 ? 'BODY_TOO_LARGE' : 'SERVER_ERROR', message: status === 413 ? '请求内容过长。' : '服务器暂时无法完成请求，请稍后重试。' } }));
+    res.end(JSON.stringify({ error: { code: status===413?'BODY_TOO_LARGE':(error?.code||'SERVER_ERROR'), message: status === 413 ? '请求内容过长。' : '服务器暂时无法完成请求，请稍后重试。' } }));
   }
 }
 

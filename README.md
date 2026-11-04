@@ -43,3 +43,8 @@ GitHub Pages 只能展示原静态功能，不能运行管理员后台或数据�
 ## 第二阶段最小AI接口（新增，默认关闭）
 
 服务端已增加Token Rhythm/OpenAI Chat Completions兼容Provider与管理员多轮测试接口；默认仍为固定文案演示。此前“未接真实AI”的描述指未完成供应商实连验证，不代表没有接口代码。本轮没有调用收费API。安全配置、额度、Mock测试和iPhone首次手动开启说明见 [docs/ai-testing.md](docs/ai-testing.md)。新增变量仅放服务端：AI_ENABLED=false、AI_BASE_URL、AI_MODEL、AI_API_KEY、AI_DAILY_LIMIT、AI_RATE_LIMIT。AI_MODEL必须使用供应商实际模型ID；密钥不得发到聊天。
+
+
+## 中国大陆单机部署适配（未部署）
+
+预算上限50元/月，目标腾讯云大陆2核2GB，实际价格与续费需购买前核实，超过预算停止。新增显式生产SQLite持久路径、Nginx本机可信代理、systemd与日志轮转模板，以及一致性备份/新文件恢复验证。无额外数据库或面板月租；AI保持关闭，无收费调用。详见 [deploy/china/README.md](deploy/china/README.md)。本分支未购买、未公开部署、未合并；原Vercel文档仅为保留的可选方案。

@@ -9,8 +9,8 @@ root=Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix='pv-browser-') as tmp:
  with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
  base=f'http://127.0.0.1:{port}';password=secrets.token_hex(24)
- env={**os.environ,'PORT':str(port),'SQLITE_PATH':str(Path(tmp)/'test.sqlite'),'ADMIN_EMAIL':'admin@example.test','ADMIN_PASSWORD':password,'NODE_ENV':'test'}
- env.pop('DATABASE_URL',None);env.pop('VERCEL',None)
+ env={**os.environ,'PORT':str(port),'SQLITE_PATH':str(Path(tmp)/'test.sqlite'),'ADMIN_EMAIL':'admin@example.test','ADMIN_PASSWORD':password,'NODE_ENV':'test','AI_ENABLED':'false'}
+ env.pop('DATABASE_URL',None);env.pop('VERCEL',None);env.pop('AI_API_KEY',None);env.pop('APP_ORIGIN',None)
  with open(Path(tmp)/'server.log','w') as log:
   server=subprocess.Popen(['node','scripts/dev-server.js'],cwd=root,env=env,stdout=log,stderr=log)
   try:

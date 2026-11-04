@@ -3,9 +3,11 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import api from '../api/index.js';
-import { getDatabase, migrateDatabase } from '../server/database.js';
+import {validateServerEnvironment} from '../server/deployment.js';
+import { getDatabase, migrateDatabase, closeDatabases } from '../server/database.js';
 import { initializeData } from '../server/handler.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+validateServerEnvironment(process.env);
 const db = await getDatabase(process.env);
 await migrateDatabase(db);
 await initializeData(db);
@@ -28,6 +30,6 @@ const server = http.createServer(async (req, res) => {
 });
 const port = Number(process.env.PORT || 8000);
 server.listen(port, '127.0.0.1', () => console.log('PersonaVerse: http://127.0.0.1:' + port));
-process.on('SIGTERM', () => server.close(() => process.exit(0)));
-process.on('SIGINT', () => server.close(() => process.exit(0)));
+process.on('SIGTERM', () => server.close(async () => {await closeDatabases();process.exit(0);}));
+process.on('SIGINT', () => server.close(async () => {await closeDatabases();process.exit(0);}));
 
