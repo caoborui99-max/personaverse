@@ -7,15 +7,24 @@ const DAY = 86400000;
 // Existing isolation tests remain admin-only and cannot raise their fixed limits.
 // Public access is a separate, explicit server-side opt-in; it never enables AI.
 export function chatAccess(env) {
+  const quotaMode=env.AI_QUOTA_MODE||'standard';
+  if(!['standard','development'].includes(quotaMode))throw new ApiError(503,'CHAT_CONFIG_INVALID','开发额度模式配置无效。');
   const access = env.AI_CHAT_ACCESS || 'admin';
   if (!['admin', 'public'].includes(access)) throw new ApiError(503, 'CHAT_CONFIG_INVALID', '聊天访问配置无效。');
-  if (access === 'admin') return {public: false, dailyLimit: 1, rateLimit: 1};
+  if (access === 'admin') return {public: false, dailyLimit: 1, rateLimit: 1,quotaMode};
   function limit(key, max) {
     const value = env[key] === undefined || env[key] === '' ? 1 : Number(env[key]);
     if (!Number.isInteger(value) || value < 1 || value > max) throw new ApiError(503, 'CHAT_CONFIG_INVALID', '聊天额度配置无效。');
     return value;
   }
-  return {public: true, dailyLimit: limit('AI_DAILY_LIMIT', 100), rateLimit: limit('AI_RATE_LIMIT', 3)};
+  return {public: true, dailyLimit: limit('AI_DAILY_LIMIT', 100), rateLimit: limit('AI_RATE_LIMIT', 3),quotaMode};
+}
+
+export function identityQuota(env,access,user) {
+  if(access.quotaMode!=='development'||user?.role!=='admin')return {...access,developmentAdmin:false};
+  const raw=env.AI_ADMIN_RATE_LIMIT===undefined?'1':env.AI_ADMIN_RATE_LIMIT;
+  if(typeof raw!=='string'||!/^([1-9]|[1-5][0-9]|60)$/.test(raw))throw new ApiError(503,'CHAT_CONFIG_INVALID','管理员分钟频率须为1至60的整数。');
+  return {...access,dailyLimit:null,monthlyLimit:null,rateLimit:Number(raw),developmentAdmin:true};
 }
 
 function tokenFrom(request) {

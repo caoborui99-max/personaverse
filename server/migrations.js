@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { ApiError } from './security.js';
-const files=['0001.sql','0002_catalog.sql','0003_ai_test.sql','0004_soul_core.sql'];
+const files=['0001.sql','0002_catalog.sql','0003_ai_test.sql','0004_soul_core.sql','0005_chat_cost_guard.sql'];
 async function manifest() {
   return Promise.all(files.map(async id=>{
     const sql=await readFile(new URL('../db/migrations/'+id,import.meta.url),'utf8');

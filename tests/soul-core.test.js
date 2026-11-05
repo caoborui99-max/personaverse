@@ -22,7 +22,7 @@ test('migration journal is idempotent, rejects changed checksums, and readiness 
  await assert.rejects(()=>assertDatabaseReady(db),e=>e.code==='MIGRATION_REQUIRED');
  assert.equal((await db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='table'").first()).n,0);
  await migrateDatabase(db);await initializeData(db);await assertDatabaseReady(db);
- const journal=await db.prepare('SELECT * FROM schema_migrations ORDER BY id').all();assert.equal(journal.results.length,4);
+ const journal=await db.prepare('SELECT * FROM schema_migrations ORDER BY id').all();assert.equal(journal.results.length,5);
  await migrateDatabase(db);assert.deepEqual((await db.prepare('SELECT * FROM schema_migrations ORDER BY id').all()).results,journal.results);
  await db.prepare("UPDATE schema_migrations SET checksum='invalid' WHERE id='0004_soul_core.sql'").run();
  await assert.rejects(()=>migrateDatabase(db),e=>e.code==='MIGRATION_MISMATCH');await assert.rejects(()=>assertDatabaseReady(db),e=>e.code==='MIGRATION_MISMATCH');
@@ -94,7 +94,7 @@ test('failed migration transaction leaves no applied record and can be retried s
  // Repair only this deliberately broken empty fixture, never a real database.
  await db.prepare('DROP TABLE personas').run();
  await migrateDatabase(db);await initializeData(db);await assertDatabaseReady(db);
- assert.equal((await db.prepare('SELECT count(*) AS n FROM schema_migrations').first()).n,4);
+ assert.equal((await db.prepare('SELECT count(*) AS n FROM schema_migrations').first()).n,5);
 }));
 test('explicit initialization repairs missing links without changing an existing profile',()=>fixture(async({db})=>{
  await migrateDatabase(db);await initializeData(db);

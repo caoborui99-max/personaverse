@@ -6,12 +6,14 @@ import {join} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {getDatabase,migrateDatabase,closeDatabases} from '../server/database.js';
 import {initializeData,handleApi} from '../server/handler.js';
+import {costEnv} from './fixtures/cost.js';
 import {seedPersonas} from '../server/seed-data.js';
 
 async function fixture(run) {
   const dir = await mkdtemp(join(tmpdir(), 'pv-public-'));
   const env = {SQLITE_PATH: join(dir, 'fixture.sqlite'), AI_ENABLED: 'true', AI_CHAT_ACCESS: 'public',
     AI_BASE_URL: 'https://api.deepseek.com/v1', AI_MODEL: 'fixture-model', AI_API_KEY: 'fixture-not-a-real-key', AI_DAILY_LIMIT: '20'};
+  Object.assign(env,costEnv(env));
   let clock = Date.now(); const calls = [];
   const provider = {complete: async messages => {calls.push(messages); return 'Offline fixture response';}};
   const call = async (path, body, cookie = '', overrides = {}) => {
@@ -76,6 +78,7 @@ test('visitor cookies cannot elevate to admin, read another history, replace pro
 }));
 
 test('public rate and global daily ceilings survive a new visitor, failures, replay and database reopen', () => fixture(async ({env,db,call,session,calls,minute}) => {
+  env.AI_QUOTA_MODE = 'development'; // Anonymous cookies never receive the admin exemption.
   env.AI_DAILY_LIMIT = '2';
   const a = await session();
   assert.equal((await call('ai/chat', message(), a)).response.status, 200);

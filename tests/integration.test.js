@@ -81,7 +81,7 @@ test('startup refuses legacy schema without performing migration or seed writes'
     assert.equal((await db.prepare('SELECT count(*) AS n FROM personas').first()).n,0);
     assert.equal((await db.prepare("SELECT value FROM settings WHERE key='preserved'").first()).value,'unchanged');
     await execute(process.execPath,['scripts/migrate.js'],{env,timeout:5000});
-    assert.equal((await db.prepare('SELECT count(*) AS n FROM schema_migrations').first()).n,4);
+    assert.equal((await db.prepare('SELECT count(*) AS n FROM schema_migrations').first()).n,5);
     assert.equal((await db.prepare('SELECT count(*) AS n FROM personas').first()).n,12);
   } finally {await closeDatabases();await rm(dir,{recursive:true,force:true});}
 });

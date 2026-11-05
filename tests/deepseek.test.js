@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 const originalFetch=globalThis.fetch;
 before(()=>{globalThis.fetch=()=>{throw new Error('Network disabled in Mock tests');};});
 after(()=>{globalThis.fetch=originalFetch;});
-import {aiConfiguration,createProvider,providerLimits} from '../server/ai-provider.js';
+import {aiConfiguration,providerLimits} from '../server/ai-provider.js';
+import {createProvider,costEnv,smokeConfig} from './fixtures/cost.js';
+import {closeDatabases} from '../server/database.js';
 // Synthetic fixture only. Every test injects a local mock; global fetch is never used.
-const env={AI_ENABLED:'true',AI_BASE_URL:'https://api.deepseek.com/v1',AI_MODEL:'fixture-model-from-server',AI_API_KEY:'fixture-not-a-real-key',AI_MAX_OUTPUT_TOKENS:'16'};
+const env={AI_ENABLED:'true',AI_BASE_URL:'https://api.deepseek.com/v1',AI_MODEL:'fixture-model-from-server',AI_API_KEY:'fixture-not-a-real-key',AI_MAX_OUTPUT_TOKENS:'16'};Object.assign(env,costEnv(env));
 test('DeepSeek compatible request uses server model, exact endpoint, small token cap and no streaming',async()=>{
  let calls=0;
  const provider=createProvider(env,async(url,options)=>{calls++;assert.equal(url,'https://api.deepseek.com/v1/chat/completions');assert.equal(options.redirect,'error');assert.equal(options.signal.aborted,false);const body=JSON.parse(options.body);assert.equal(body.model,env.AI_MODEL);assert.equal(body.max_tokens,16);assert.equal(body.stream,false);assert.equal(options.headers.Authorization,'Bearer '+env.AI_API_KEY);return Response.json({choices:[{message:{content:'OK'}}]});});
@@ -40,7 +42,7 @@ test('single-request tool requires confirmation, config, official endpoint and p
  const dir=await mkdtemp(join(tmpdir(),'pv-deepseek-once-'));let calls=0;
  const fetcher=async(_,options)=>{calls++;assert.equal(JSON.parse(options.body).max_tokens,16);return Response.json({choices:[{message:{content:'OK'}}]});};
  try{
-  const config={...env,AI_TEST_STATE_DIR:dir};
+  const config=await smokeConfig(env,dir);
   await assert.rejects(()=>runDeepSeekOnce(config,{fetcher}),e=>e.code==='CONFIRMATION_REQUIRED');
   await assert.rejects(()=>runDeepSeekOnce({...config,AI_API_KEY:''},{confirmed:true,fetcher}),e=>e.code==='AI_DISABLED');
   await assert.rejects(()=>runDeepSeekOnce({...config,AI_BASE_URL:'https://other.example/v1'},{confirmed:true,fetcher}),e=>e.code==='AI_CONFIG_INVALID');
@@ -48,12 +50,12 @@ test('single-request tool requires confirmation, config, official endpoint and p
   await runDeepSeekOnce(config,{confirmed:true,fetcher});assert.equal(calls,1);
   await assert.rejects(()=>runDeepSeekOnce(config,{confirmed:true,fetcher}),e=>e.code==='AI_TEST_ALREADY_ATTEMPTED');assert.equal(calls,1);
   const marker=await readFile(join(dir,'deepseek-first-attempt.json'),'utf8');assert.equal(marker.includes(env.AI_API_KEY),false);assert.equal(marker.includes('OK'),false);
- }finally{await rm(dir,{recursive:true,force:true});}
+ }finally{await closeDatabases();await rm(dir,{recursive:true,force:true});}
 });
 test('single-request failure keeps durable attempt marker and cannot loop on authentication errors',async()=>{
  const {runDeepSeekOnce}=await import('../server/deepseek-smoke.js');const {mkdtemp,rm}=await import('node:fs/promises');const {join}=await import('node:path');const {tmpdir}=await import('node:os');
  const dir=await mkdtemp(join(tmpdir(),'pv-deepseek-failure-'));let calls=0;const fetcher=async()=>{calls++;return new Response('private failure',{status:401});};
- try{const options={confirmed:true,fetcher};const config={...env,AI_TEST_STATE_DIR:dir};await assert.rejects(()=>runDeepSeekOnce(config,options),e=>e.code==='AI_AUTH_FAILED');await assert.rejects(()=>runDeepSeekOnce(config,options),e=>e.code==='AI_TEST_ALREADY_ATTEMPTED');assert.equal(calls,1);}finally{await rm(dir,{recursive:true,force:true});}
+ try{const options={confirmed:true,fetcher};const config=await smokeConfig(env,dir);await assert.rejects(()=>runDeepSeekOnce(config,options),e=>e.code==='AI_AUTH_FAILED');await assert.rejects(()=>runDeepSeekOnce(config,options),e=>e.code==='AI_TEST_ALREADY_ATTEMPTED');assert.equal(calls,1);}finally{await closeDatabases();await rm(dir,{recursive:true,force:true});}
 });
 
 

@@ -28,12 +28,12 @@
     $('#name').textContent = persona.name + ' · AI 对话';
     document.title = persona.name + ' · AI 对话 · PersonaVerse';
     const status = await api('ai/status');
-    if (status.mode !== 'real') throw Error('站内 AI 尚未开启或服务端配置不完整。当前不会调用模型，也不会生成模拟回复。');
+    if (status.mode !== 'real') throw Error(status.enabled && status.configured && status.costConfigured === false ? 'AI 费用预算或模型价格未完整配置，聊天已关闭。' : '站内 AI 尚未开启或服务端配置不完整。当前不会调用模型，也不会生成模拟回复。');
     if (status.adminRequired) {
       const session = await api('session');
       if (session.user?.role !== 'admin') throw Error('当前仅管理员可用，请先进入人格管理登录，再返回此页。');
     } else await api('ai/session', {});
-    $('.demo-note').textContent = '你正在与 AI 虚拟角色交互，不是真人。消息和回复会保存于服务器并发送给 AI 服务商，请勿输入敏感信息。每天全站最多 ' + status.dailyLimit + ' 次请求，每个会话身份每 UTC 分钟最多 ' + status.rateLimit + ' 次。';
+    $('.demo-note').textContent = '你正在与 AI 虚拟角色交互，不是真人。消息和回复会保存于服务器并发送给 AI 服务商，请勿输入敏感信息。' + (status.developmentAdmin ? '开发管理员个人日/月次数不限，全站费用预算仍生效。' : '每天全站最多 ' + status.dailyLimit + ' 次请求。') + '每个身份每 UTC 分钟最多 ' + status.rateLimit + ' 次请求。';
     try { threadId = sessionStorage.getItem(storageKey); } catch { /* Browser storage is optional. */ }
     if (threadId) {
       try {
@@ -64,7 +64,7 @@
       threadId = data.threadId;
       try { sessionStorage.setItem(storageKey, threadId); } catch { /* optional */ }
       bubble('AI 生成', data.message.content);
-      $('#error').textContent = '今日全站剩余请求次数：' + data.remaining;
+      $('#error').textContent = data.developmentAdmin ? '开发管理员个人日/月次数不限；分钟频率及全站费用预算仍生效。' : '今日全站剩余请求次数：' + data.remaining;
     } catch (error) {
       $('#error').textContent = error.message + ' 未自动重发；若请求已到达服务商，可能已产生费用。';
     } finally {

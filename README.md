@@ -1,5 +1,11 @@
 # 人格宇宙 PersonaVerse MVP
 
+## 开发管理员额度第一阶段（独立分支，尚未部署）
+
+仅显式 `AI_QUOTA_MODE=development` 且通过现有管理员鉴权的身份，免个人日/月次数限制；`NODE_ENV=development` 本身不会放开。分钟频率使用 `AI_ADMIN_RATE_LIMIT`（默认1，范围1..60），全站日/月费用预扣始终生效。预算、确切模型价格或持久化预扣缺失时禁止 Provider 调用。未新增普通用户、会员或完整后台额度系统。
+
+新增 `0005_chat_cost_guard.sql`，旧迁移、12个人格、归属标识和历史表保留。真实调用前需要显式迁移并配置费用保护；AI保持关闭。详见 [第一阶段说明与待执行步骤](docs/dev-admin-quota-phase1.md)。
+
 ## 当前上线准备分支（尚未部署）
 
 本轮基于 `phase3/deepseek-minimum-test` 的 `c8d50927f295af97f1bf3ec8a7fdf410b90239a8` 继续修复，不重建网站、不合并 main。当前前端12个人格与服务端种子完全一致；历史 `preview-dist`、`docs/preview` 及旧 Sites 仍保留原版。
