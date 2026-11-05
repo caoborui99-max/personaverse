@@ -11,7 +11,7 @@ replaceRequired('  let catalogNotice = "";', '  const catalogNotice = "PersonaVe
 const fetchLine=app.split('\n').find(line=>line.includes("fetch('./api/personas',"));if(!fetchLine)throw Error('Missing catalog initializer');replaceRequired(fetchLine,'');
 replaceRequired('    if(initialCatalog){\n      const seq=', '    /*REMOVED_API_START*/if(initialCatalog){\n      const seq=');
 const start=app.indexOf('    /*REMOVED_API_START*/');const end=app.indexOf("    const query = state.query",start);if(start<0||end<0)throw Error('Cannot locate catalog API');app=app.slice(0,start)+app.slice(end);
-const detailLine=app.split('\n').find(line=>line.includes("if(initialCatalog){try{const response=await fetch('./api/personas/'"));if(!detailLine)throw Error('Missing detail API');replaceRequired(detailLine,'');
+const detailLine=app.split('\n').find(line=>line.includes('if(initialCatalog){try{const response=await ')&&line.includes("fetch('./api/personas/'"));if(!detailLine)throw Error('Missing detail API');replaceRequired(detailLine,'');
 app=app.replaceAll('personaverse-favorites','personaverse-preview-v01-favorites').replaceAll('v1.0','Preview 0.1');
 app=app.replace('<a href="./admin.html">人格管理</a>','<a href="./index.html?view=favorites">我的收藏</a>');
 app=app.replaceAll('https://chat.deepseek.com/','./chat.html?id=moonlight').replaceAll('打开 DeepSeek','打开演示对话').replaceAll('前往 DeepSeek','体验演示对话').replaceAll('将打开 DeepSeek 官方网站','将打开静态演示，不连接真实 AI');
@@ -20,6 +20,7 @@ await emit('js/app.js',app);
 for(const name of ['index.html','persona.html']){
  let html=await readFile(resolve(root,name),'utf8');html=html.replace('width=device-width, initial-scale=1','width=device-width, initial-scale=1, viewport-fit=cover').replace(/<title>[^<]*<\/title>/,'<title>PersonaVerse Preview 0.1 · 人格宇宙静态演示</title>');
  html=html.replace('  <link rel="stylesheet" href="./css/style.css">','  <link rel="stylesheet" href="./css/style.css">\n  <link rel="stylesheet" href="./css/preview.css">');
+ html=html.replace('<script defer src="./js/http.js"></script>','');
  html=html.replace('<head>', `<head><meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">`);
  await emit(name,html);
 }

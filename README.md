@@ -4,7 +4,7 @@
 
 仅显式 `AI_QUOTA_MODE=development` 且通过现有管理员鉴权的身份，免个人日/月次数限制；`NODE_ENV=development` 本身不会放开。分钟频率使用 `AI_ADMIN_RATE_LIMIT`（默认1，范围1..60），全站日/月费用预扣始终生效。预算、确切模型价格或持久化预扣缺失时禁止 Provider 调用。未新增普通用户、会员或完整后台额度系统。
 
-新增 `0005_chat_cost_guard.sql`，旧迁移、12个人格、归属标识和历史表保留。真实调用前需要显式迁移并配置费用保护；AI保持关闭。详见 [第一阶段说明与待执行步骤](docs/dev-admin-quota-phase1.md)。
+新增 `0005_chat_cost_guard.sql`，旧迁移、12个人格、归属标识和历史表保留。真实调用前需要显式迁移并配置费用保护；AI保持关闭。详见 [第一阶段说明与待执行步骤](docs/dev-admin-quota-phase1.md)、[导航与认证代码审查](docs/navigation-auth-audit.md)。
 
 ## 当前上线准备分支（尚未部署）
 

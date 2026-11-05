@@ -13,7 +13,7 @@
     node.scrollIntoView({block: 'nearest'});
   }
   async function api(path, body) {
-    const response = await fetch('./api/' + path, {
+    const response = await window.PersonaVerseHTTP.fetch('./api/' + path, {
       method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin',
       headers: {'Content-Type': 'application/json'},
       body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(30000)
