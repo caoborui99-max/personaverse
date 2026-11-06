@@ -1,5 +1,7 @@
 import {requestOrigin} from '../server/deployment.js';
 import { handleApi } from '../server/handler.js';
+import {ApiError} from '../server/security.js';
+import {reportApiFailure} from '../server/diagnostics.js';
 export default async function handler(req, res) {
   try {
     const origin = requestOrigin(req,process.env);
@@ -41,7 +43,8 @@ export default async function handler(req, res) {
     res.statusCode = status;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
-    res.end(JSON.stringify({ error: { code: status===413?'BODY_TOO_LARGE':(error?.code||'SERVER_ERROR'), message: status === 413 ? '请求内容过长。' : '服务器暂时无法完成请求，请稍后重试。' } }));
+    let requestId;if(!(error instanceof ApiError)&&status!==413){requestId=reportApiFailure(error,req);res.setHeader('X-Request-ID',requestId);}
+    res.end(JSON.stringify({ error: { code: status===413?'BODY_TOO_LARGE':(error instanceof ApiError?error.code:'SERVER_ERROR'), message: status === 413 ? '请求内容过长。' : error instanceof ApiError?error.message:'服务器暂时无法完成请求，请稍后重试。',requestId } }));
   }
 }
 

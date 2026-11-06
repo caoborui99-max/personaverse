@@ -1,6 +1,7 @@
 import { handleSoulCore } from './soul-core.js';
 import {handleChat} from './ai-chat.js';
 import {aiConfiguration} from './ai-provider.js';
+import {reportApiFailure} from './diagnostics.js';
 import { getDatabase, assertDatabaseReady } from './database.js';
 import { ApiError, json, readJson, requireSameOrigin } from './security.js';
 import { getIdentity, handleAuth } from './auth.js';
@@ -140,7 +141,7 @@ export async function handleApi(request, env = {}, options = {}) {
   } catch (error) {
     if (error instanceof ApiError) return json({ error: { code: error.code, message: error.message } }, error.status);
     if (error instanceof URIError) return json({ error: { code: 'INVALID_PATH', message: '链接格式错误。' } }, 400);
-    console.error('PersonaVerse API failure', error?.name || 'UnknownError');
-    return json({ error: { code: 'SERVER_ERROR', message: '服务器暂时无法完成请求，请稍后重试。' } }, 500);
+    const requestId=reportApiFailure(error,request);
+    return json({ error: { code: 'SERVER_ERROR', message: '服务器暂时无法完成请求，请稍后重试。',requestId } }, 500,{'X-Request-ID':requestId});
   }
 }

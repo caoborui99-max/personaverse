@@ -6,7 +6,8 @@ export function json(data, status = 200, headers = {}) {
 }
 export function requireSameOrigin(request) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
-  if (request.headers.get('origin') !== new URL(request.url).origin || request.headers.get('sec-fetch-site') === 'cross-site') throw new ApiError(403, 'ORIGIN_REJECTED', '请从本站页面发起操作。');
+  if (request.headers.get('origin') !== new URL(request.url).origin) throw new ApiError(403, 'ORIGIN_REJECTED', '请求来源与服务端站点地址不一致，请核对 APP_ORIGIN 与可信 HTTPS 代理配置。');
+  if (request.headers.get('sec-fetch-site') === 'cross-site') throw new ApiError(403, 'ORIGIN_REJECTED', '请从本站页面发起操作。');
   if (request.body && request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json') throw new ApiError(415, 'JSON_REQUIRED', '请使用 JSON 提交。');
 }
 export async function readJson(request) {

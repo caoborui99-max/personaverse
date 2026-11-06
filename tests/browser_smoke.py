@@ -33,7 +33,12 @@ with tempfile.TemporaryDirectory(prefix='pv-browser-') as tmp:
     page.locator('#search').fill('Moonlight');expect(page.locator('#results .persona-card')).to_have_count(1)
     page.locator('#reset-search').click();page.locator('.category-chip[data-category="效率工具"]').click();expect(page.locator('#results .persona-card')).to_have_count(3)
     print('PASS 1: mobile list/search/category',flush=True)
-    page.goto(base+'/admin.html');page.locator('[name=email]').fill('admin@example.test');page.locator('[name=password]').fill(password);page.locator('#login button').click();expect(page.locator('#panel')).to_be_visible()
+    page.goto(base+'/admin.html');expect(page.locator('#login')).to_be_visible();expect(page.locator('#panel')).not_to_be_visible()
+    page.locator('[name=email]').fill('admin@example.test');page.locator('[name=password]').fill('synthetic-wrong-password');page.locator('#login button').click()
+    expect(page.locator('#notice')).to_contain_text('INVALID_CREDENTIALS');expect(page.locator('#panel')).not_to_be_visible()
+    page.locator('[name=password]').fill(password);page.locator('#login').evaluate('(form)=>form.requestSubmit()')
+    expect(page.locator('#panel')).to_be_visible();expect(page.locator('#notice')).to_have_text('登录成功');assert page.url==base+'/admin.html'
+    print('PASS admin auth: guest, wrong password, successful session and same-page panel',flush=True)
     page.locator('#new').click()
     for field,value in {'name':'手机验收角色','description':'原创测试角色','background':'原创背景','personality':'耐心','languageStyle':'中文','systemPrompt':'原创提示词'}.items():page.locator('#form [name='+field+']').fill(value)
     page.locator('#form [name=status]').select_option('published');page.locator('#form button').first.click();expect(page.locator('#editor')).not_to_be_visible()
