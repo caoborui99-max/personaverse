@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Reviewable, fail-closed release runner. --check is default; never migrates data.
-Supported profile: direct systemd Node 24 + independent SQLite + local nginx TLS.
-Do not execute with python -O. No secret values or subprocess stderr are printed.
+"""--check verifies offline artifacts/snapshots inside a read-only namespace only.
+--prepare is potentially writing; --apply retains the original deployment gates.
+Neither a successful offline check nor --prepare authorizes deployment.
 """
+import sys
+sys.dont_write_bytecode = True
 import argparse
 import contextlib
 import fcntl
@@ -18,7 +20,6 @@ import shutil
 import signal
 import sqlite3
 import subprocess
-import sys
 import tarfile
 import tempfile
 import time
@@ -70,7 +71,94 @@ def as_user(args, *, cwd=ROOT, timeout=40, raw=False, extra=None):
 
 
 def git(*args, **kw):
-    return as_user(['git', '-c', 'core.hooksPath=/dev/null', '-C', ROOT, *args], **kw)
+    return as_user(['git', '--no-optional-locks', '-c', 'core.hooksPath=/dev/null',
+                    '-c', 'core.fsmonitor=false', '-C', ROOT, *args],
+                   extra={'GIT_OPTIONAL_LOCKS': '0'}, **kw)
+
+
+def readonly_boundary():
+    """No environment flag or CLI switch can bypass kernel boundary verification."""
+    need(sys.flags.isolated and sys.flags.no_site and sys.dont_write_bytecode,
+         '只读检查必须经已审查启动器，以Python -I -B -S运行；未读取目标目录。')
+    need(sys.platform == 'linux', '只读边界仅支持Linux；停止。')
+    mounts = Path('/proc/self/mountinfo').read_text().splitlines()
+    need(mounts and all('ro' in line.split()[5].split(',') for line in mounts),
+         '未能确认所有挂载均为只读；停止，不宣称只读。请使用check-readonly.sh。')
+    need(os.stat('/proc/self/ns/net').st_ino != os.stat('/proc/1/ns/net').st_ino,
+         '未能确认独立网络命名空间；停止，不执行目标检查。')
+
+
+def check_git(repo, *args, raw=False):
+    """Only fixed read operations; no helper, trace, lazy fetch, credential or lock setup."""
+    env = {**SAFE_ENV, 'HOME': '/nonexistent', 'GIT_OPTIONAL_LOCKS': '0',
+           'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': '/dev/null',
+           'GIT_NO_LAZY_FETCH': '1', 'GIT_TERMINAL_PROMPT': '0'}
+    command = ['git', '--no-optional-locks', '-c', 'safe.directory='+str(repo),
+               '-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false',
+               '-c', 'core.untrackedCache=false', '-c', 'core.splitIndex=false',
+               '-c', 'protocol.allow=never', '-C', str(repo), *args]
+    try:
+        result = subprocess.run(command, env=env, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, timeout=40, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        raise Stop('只读Git检查不可用或超时；未输出配置值。') from None
+    need(result.returncode == 0, '只读Git检查失败；不尝试修复索引、权限或网络。')
+    return result.stdout if raw else result.stdout.decode('utf-8').strip()
+
+
+MIGRATION_IDS = ('0001.sql', '0002_catalog.sql', '0003_ai_test.sql',
+                 '0004_soul_core.sql', '0005_chat_cost_guard.sql')
+
+
+def offline_check(repository, snapshot):
+    readonly_boundary()  # before any target stat, read, Git, SQLite or process inspection
+    need(repository and snapshot, '必须明确提供仓库与一致性数据库快照；不猜测数据库路径。')
+    repo, db = Path(repository), Path(snapshot)
+    need(repo.is_absolute() and db.is_absolute() and repo.resolve() == repo
+         and db.resolve() == db, '检查目标必须是无符号链接的绝对路径。')
+    need(repo.is_dir() and (repo/'.git').is_dir() and not (repo/'.git').is_symlink(),
+         '仅接受独立普通Git仓库；不改写Git元数据。')
+    # A snapshot is supplied by an independently approved preparation operation.
+    need(not any(db.is_relative_to(p) for p in (repo, ROOT, OLD_ROOT)),
+         '数据库快照不得位于工作仓库或8000/9000服务目录；禁止直接打开在线库。')
+    config = check_git(repo, 'config', '--local', '--no-includes', '--list')
+    need(not re.search(r'^(filter\.|include\.|includeif\.|core\.(worktree|fsmonitor|sshcommand)|extensions\.|remote\..*\.promisor)', config, re.M | re.I),
+         '仓库包含未支持的过滤器/include/扩展配置；停止，不执行辅助程序。')
+    need(check_git(repo, 'rev-parse', '--show-toplevel') == str(repo), 'Git根目录不符。')
+    current = check_git(repo, 'rev-parse', 'HEAD')
+    need(current in (PARENT, SHA), '仓库不是已审核基线或固定目标提交；停止。')
+    need(not check_git(repo, 'status', '--porcelain=v1', '--untracked-files=all',
+                       '--ignore-submodules=all'), '仓库有未提交改动；停止，不stash或reset。')
+    need(not any((repo/p).exists() for p in ('.gitmodules', '.gitattributes')),
+         '只读快照检查不支持子模块或属性过滤；停止。')
+    expected = {}
+    for name in MIGRATION_IDS:
+        raw = check_git(repo, 'show', current+':db/migrations/'+name, raw=True)
+        if name == '0002_catalog.sql':
+            raw += b'\nlegacy-visibility-v1'
+        expected[name] = hashlib.sha256(raw).hexdigest()
+    need(hasattr(sqlite3.Connection, 'deserialize'),
+         '纯内存SQLite校验需要Python 3.11+的deserialize；不回退到磁盘连接。')
+    need(db.is_file() and not db.is_symlink() and db.stat().st_nlink == 1,
+         '快照不是独立常规文件。')
+    need(not any(Path(str(db)+suffix).exists() for suffix in ('-wal', '-shm', '-journal')),
+         '发现WAL/SHM/journal；快照未满足无旁路文件要求，停止，不checkpoint。')
+    need(db.stat().st_size <= 256*1024*1024, '快照超过256MiB内存检查上限；停止。')
+    with db.open('rb') as source:
+        before = os.fstat(source.fileno())
+        raw = source.read(256*1024*1024+1)
+        after = os.fstat(source.fileno())
+    need((before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns)
+         == (after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns),
+         '快照读取期间发生变化；停止。')
+    need(len(raw) >= 100 and raw[:16] == b'SQLite format 3\0'
+         and raw[18:20] == b'\x01\x01', '快照不是完整rollback-journal格式；不读取WAL、不修复文件。')
+    with contextlib.closing(sqlite3.connect(':memory:')) as con:
+        con.deserialize(raw)
+        con.executescript('PRAGMA temp_store=MEMORY; PRAGMA query_only=ON; PRAGMA trusted_schema=OFF;')
+        validate_schema(con, expected)
+    print('PASS: offline repository and supplied snapshot only; target='+SHA, flush=True)
+    print('LIVE_DEPLOYMENT_READINESS=UNVERIFIED; no HTTP/systemd/nginx/live database checks.', flush=True)
 
 
 def system(unit, *props):
@@ -188,15 +276,20 @@ def readonly_db(path):
 
 def schema_check(db, target_sql):
     with contextlib.closing(readonly_db(db)) as con:
-        need(con.execute('PRAGMA quick_check').fetchall() == [('ok',)], 'SQLite完整性检查失败。')
-        rows = dict(con.execute('SELECT id,checksum FROM schema_migrations'))
-        need(rows == target_sql, '迁移校验不匹配；本脚本禁止自动迁移。')
-        for table in ['sessions', 'login_attempts', 'personas', 'persona_core_links', 'soul_core', 'settings']:
-            need(con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone(),
-                 '缺少必要数据表；停止，不初始化。')
-        need(con.execute("SELECT 1 FROM soul_core WHERE id='shared'").fetchone(), '缺少核心数据。')
-        need(con.execute("SELECT 1 FROM settings WHERE key='catalog_seed_v1'").fetchone(), '缺少初始化标记。')
-        need(not con.execute('SELECT 1 FROM personas p LEFT JOIN persona_core_links l ON l.persona_id=p.id WHERE l.persona_id IS NULL LIMIT 1').fetchone(), '人格核心关联不完整。')
+        validate_schema(con, target_sql)
+
+
+def validate_schema(con, target_sql):
+    need(con.execute('PRAGMA quick_check').fetchall() == [('ok',)], 'SQLite完整性检查失败。')
+    rows = dict(con.execute('SELECT id,checksum FROM schema_migrations'))
+    need(rows == target_sql, '迁移校验不匹配；本脚本禁止自动迁移。')
+    for table in ['sessions', 'login_attempts', 'personas', 'persona_core_links', 'soul_core', 'settings']:
+        need(con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone(),
+             '缺少必要数据表；停止，不初始化。')
+    need(con.execute("SELECT 1 FROM soul_core WHERE id='shared'").fetchone(), '缺少核心数据。')
+    need(con.execute("SELECT 1 FROM settings WHERE key='catalog_seed_v1'").fetchone(), '缺少初始化标记。')
+    need(not con.execute('SELECT 1 FROM personas p LEFT JOIN persona_core_links l ON l.persona_id=p.id WHERE l.persona_id IS NULL LIMIT 1').fetchone(), '人格核心关联不完整。')
+
 
 
 def nginx_tokens(text):
@@ -639,15 +732,26 @@ def interrupted(signum, frame):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     modes = parser.add_mutually_exclusive_group()
-    modes.add_argument('--check', action='store_true', help='default: read-only preflight; no fetch/restart/checkout')
+    modes.add_argument('--check', action='store_true', help='default: isolated offline check; does not assert deployment readiness')
+    modes.add_argument('--prepare', action='store_true', help='potentially writing live preflight; requires separate approval')
     modes.add_argument('--apply', action='store_true', help='explicitly authorize backup, stop, pinned checkout, start and rollback')
     parser.add_argument('--fetch', action='store_true', help='allow fetching only the named branch; writes Git objects/FETCH_HEAD, not code')
+    parser.add_argument('--repository', help='absolute repository path for offline --check only')
+    parser.add_argument('--database-snapshot', help='explicit standalone approved SQLite snapshot, never a live database')
     args = parser.parse_args()
-    os.umask(0o077)
-    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
-        signal.signal(sig, interrupted)
+    if args.fetch and not args.prepare:
+        parser.error('--fetch只能与--prepare组合；不能与--check或--apply组合。')
+    if (args.prepare or args.apply) and (args.repository or args.database_snapshot):
+        parser.error('离线输入路径不能覆盖准备/部署的固定8000/9000目录。')
     lock = None
     try:
+        if not args.prepare and not args.apply:
+            offline_check(args.repository, args.database_snapshot)
+            return 0
+        os.umask(0o077)
+        for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+            signal.signal(sig, interrupted)
+        print('POTENTIALLY_WRITING_MODE: live preflight may update Git/index, SQLite sidecars and service logs.', flush=True)
         if args.apply:
             need(os.geteuid() == 0, '需要sudo/root。')
             fd = os.open('/run/lock/personaverse-staging-release.lock',
@@ -663,7 +767,7 @@ def main():
             need(plan['current'] != SHA, '指定提交已部署；不重复重启。')
             apply(plan)
         else:
-            print('CHECK ONLY: no service restart, checkout, config change or database migration.', flush=True)
+            print('PREPARATION COMPLETE: no deployment performed; this mode is not read-only.', flush=True)
     except BaseException as error:
         # Never interpolate unexpected exceptions, argv, env or captured process output.
         print('STOP: '+(str(error) if isinstance(error, Stop) else '未预期错误；停止，未输出敏感上下文。'), file=sys.stderr, flush=True)

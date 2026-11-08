@@ -1,0 +1,31 @@
+name: Staging readonly script validation
+on:
+  push:
+    branches: ['fix/staging-check-readonly']
+  pull_request:
+    paths:
+      - 'docs/reviews/staging-deploy/**'
+      - '.github/workflows/staging-readonly-review.yml'
+permissions:
+  contents: read
+jobs:
+  readonly-fixtures:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install namespace test dependency
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y bubblewrap
+      - name: Require real readonly boundary and compare fixture metadata
+        working-directory: docs/reviews/staging-deploy
+        run: sudo env PV_REQUIRE_READONLY_SANDBOX=1 /usr/bin/python3 -B -m unittest -v test_release.py test_readonly.py
+      - name: Verify review package
+        working-directory: docs/reviews/staging-deploy
+        run: |
+          sha256sum -c SHA256SUMS
+          sha256sum -c personaverse-staging-review.zip.sha256
+          python3 -B -c 'import zipfile; z=zipfile.ZipFile("personaverse-staging-review.zip"); assert z.testzip() is None; assert all(z.read(n)==open(n,"rb").read() for n in z.namelist())'
