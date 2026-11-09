@@ -20,6 +20,10 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y bubblewrap
+      - name: Diagnose isolated mount boundary (runner metadata only)
+        continue-on-error: true
+        run: |
+          sudo bwrap --ro-bind / / --unshare-net --die-with-parent -- /usr/bin/python3 -I -B -S -c 'import os; print("WRITABLE_MOUNTS", [(x.split()[4],x.split()[5]) for x in open("/proc/self/mountinfo") if "ro" not in x.split()[5].split(",")]); print("NET_SEPARATE",os.stat("/proc/self/ns/net").st_ino != os.stat("/proc/1/ns/net").st_ino)'
       - name: Require real readonly boundary and compare fixture metadata
         working-directory: docs/reviews/staging-deploy
         run: sudo env PV_REQUIRE_READONLY_SANDBOX=1 /usr/bin/python3 -B -m unittest -v test_release.py test_readonly.py
