@@ -1,3 +1,4 @@
+LOCAL OFFLINE TESTS ONLY. Kernel boundary group explicitly skipped; GitHub CI must verify it.
 test_auth_probes_never_use_valid_password_or_chat_api (test_release.Tests.test_auth_probes_never_use_valid_password_or_chat_api) ... ok
 test_cloudflare_redirect_or_html_fails_closed (test_release.Tests.test_cloudflare_redirect_or_html_fails_closed) ... ok
 test_config_change_blocks_stop (test_release.Tests.test_config_change_blocks_stop) ... ok
@@ -10,8 +11,14 @@ test_pin_and_patch_scope (test_release.Tests.test_pin_and_patch_scope) ... ok
 test_rollback_starts_old_code_without_restoring_db (test_release.Tests.test_rollback_starts_old_code_without_restoring_db) ... ok
 test_schema_mismatch_never_migrates (test_release.Tests.test_schema_mismatch_never_migrates) ... ok
 test_systemd_assignments_are_not_shell_evaluated (test_release.Tests.test_systemd_assignments_are_not_shell_evaluated) ... ok
+setUpClass (test_readonly.KernelBoundaryTests) ... skipped 'Local sandbox denies nested namespace; CI requires this suite, never silently passes it'
+test_bare_check_stops_without_touching_targets_on_error_exit (test_readonly.PureModeTests.test_bare_check_stops_without_touching_targets_on_error_exit) ... ok
+test_check_does_not_reach_mutating_or_credential_paths (test_readonly.PureModeTests.test_check_does_not_reach_mutating_or_credential_paths) ... ok
+test_fetch_and_prepare_cannot_hide_behind_check (test_readonly.PureModeTests.test_fetch_and_prepare_cannot_hide_behind_check) ... ok
+test_git_check_environment_disables_index_helpers_and_lazy_network (test_readonly.PureModeTests.test_git_check_environment_disables_index_helpers_and_lazy_network) ... ok
+test_target_and_service_boundaries_unchanged (test_readonly.PureModeTests.test_target_and_service_boundaries_unchanged) ... ok
 
 ----------------------------------------------------------------------
-Ran 12 tests in 0.014s
+Ran 17 tests in 0.089s
 
-OK
+OK (skipped=1)
