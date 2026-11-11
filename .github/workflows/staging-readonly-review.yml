@@ -20,6 +20,20 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y bubblewrap
+      - name: Diagnose proc namespace layouts (runner only)
+        run: |
+          sudo /usr/bin/python3 -I -B -S - <<'PYCASE'
+          import subprocess
+          layouts = {
+            'fresh-proc': ['--proc','/proc','--remount-ro','/proc'],
+            'empty-binfmt': ['--tmpfs','/proc/sys/fs/binfmt_misc','--remount-ro','/proc/sys/fs/binfmt_misc'],
+            'bind-binfmt': ['--ro-bind','/proc/sys/fs/binfmt_misc','/proc/sys/fs/binfmt_misc'],
+          }
+          probe = 'import os; print("WRITABLE",[(x.split()[4],x.split()[5]) for x in open("/proc/self/mountinfo") if "ro" not in x.split()[5].split(",")]); print("NET",os.stat("/proc/self/ns/net").st_ino != os.stat("/proc/1/ns/net").st_ino)'
+          for name, layout in layouts.items():
+              r=subprocess.run(['bwrap','--ro-bind','/','/','--unshare-net','--die-with-parent',*layout,'--','/usr/bin/python3','-I','-B','-S','-c',probe],capture_output=True,text=True)
+              print('LAYOUT',name,'EXIT',r.returncode,r.stdout,r.stderr,flush=True)
+          PYCASE
       - name: Verify sealed namespace metadata (runner only)
         run: |
           sudo bwrap --ro-bind / / --unshare-net --die-with-parent --remount-ro /proc/sys/fs/binfmt_misc -- /usr/bin/python3 -I -B -S -c 'import os; writable=[(x.split()[4],x.split()[5]) for x in open("/proc/self/mountinfo") if "ro" not in x.split()[5].split(",")]; separate=os.stat("/proc/self/ns/net").st_ino != os.stat("/proc/1/ns/net").st_ino; print("WRITABLE_MOUNTS",writable); print("NET_SEPARATE",separate); assert not writable and separate'
