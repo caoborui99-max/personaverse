@@ -23,7 +23,7 @@
 
 ## 只读边界与前置条件
 
-1. 通过 `check-readonly.sh` 启动 `/usr/bin/bwrap`。只在子命名空间将 `/` 及其子挂载绑定为只读，隔离网络，不改宿主挂载/权限，不创建磁盘临时文件；不安装依赖。缺bubblewrap或内核不允许命名空间即停止。
+1. 通过 `check-readonly.sh` 启动 `/usr/bin/bwrap`。只在子命名空间将 `/` 及其子挂载绑定为只读；对可能自动成为rw的 `/proc/sys/fs/binfmt_misc` 再显式remount-ro，最终仍检查全部挂载。隔离网络，不改宿主挂载/权限，不创建磁盘临时文件；不安装依赖。缺bubblewrap或内核不允许命名空间即停止。
 2. Python以 `-I -B -S` 启动，禁用用户路径、环境注入、site初始化和字节码缓存。工作进程验证内核mountinfo每个挂载为ro，且网络命名空间不同于宿主PID1；没有跳过边界检查的参数或环境变量。
 3. Git同时使用 `GIT_OPTIONAL_LOCKS=0`、`--no-optional-locks`，禁用fsmonitor/untracked cache/split index、钩子、全局/系统配置、协议和lazy fetch。遇到本地filter/include/扩展配置、子模块、属性文件等不确定情况停止。不会调用凭据助手或读取SSH/环境文件。
 4. SQLite必须是**已经独立批准准备的完整快照**，路径明确提供，位于仓库及8000/9000目录以外，没有硬链接/符号链接或 `-wal/-shm/-journal`。只接受数据库头为rollback-journal格式的完整快照，不能传正在使用的服务库；脚本不备份、不checkpoint、不改journal_mode、不补齐文件。
@@ -47,7 +47,7 @@ sh <独立工具目录>/check-readonly.sh \
   --database-snapshot <独立完整数据库快照绝对路径>
 ```
 
-运行前核对SHA256SUMS及ZIP校验和。只分享脱敏PASS/STOP、固定提交和错误类别，不分享环境文件、快照、备份或凭据。
+运行前核对SHA256SUMS。本修复分支移除过期ZIP；最新一致审查包由CI从本提交源码生成，原PR #2的包保持不变。只分享脱敏PASS/STOP、固定提交和错误类别，不分享环境文件、快照、备份或凭据。
 
 在线 `--prepare` 和部署 `--apply` 的命令不作为本次只读流程的一部分提供。不要为了让检查通过而安装依赖、放宽权限、禁用安全保护、修改代理、迁移数据库或重启服务。
 
@@ -70,4 +70,4 @@ python3 -B -m unittest -v test_release.py test_readonly.py
 - CI设置 `PV_REQUIRE_READONLY_SANDBOX=1`，隔离环境不可用即失败；不能靠skip通过。云端本地若不允许嵌套命名空间，会明确报告该组跳过，与真正通过区分。
 - 所有测试使用临时合成数据，不访问服务器、真实凭据或DeepSeek。原部署回滚测试调用的是mock，不会运行实际服务命令。
 
-材料：脚本、只读启动器、两组测试、审查报告、测试记录、SHA256SUMS及更新ZIP。ZIP只含审核材料，另附ZIP SHA256，不含数据库/凭据/环境文件/pycache。
+材料：脚本、只读启动器、两组测试、审查报告、测试记录和SHA256SUMS。本分支移除过期ZIP，由CI从白名单源码生成新ZIP、校验和与artifact；原PR #2保持不变。

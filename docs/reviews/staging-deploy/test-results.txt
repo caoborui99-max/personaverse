@@ -1,4 +1,4 @@
-LOCAL OFFLINE VALIDATION ONLY. Kernel suite requires CI; skip is not success.
+LOCAL OFFLINE TESTS ONLY. Kernel boundary group explicitly skipped; GitHub CI must verify it.
 test_auth_probes_never_use_valid_password_or_chat_api (test_release.Tests.test_auth_probes_never_use_valid_password_or_chat_api) ... ok
 test_cloudflare_redirect_or_html_fails_closed (test_release.Tests.test_cloudflare_redirect_or_html_fails_closed) ... ok
 test_config_change_blocks_stop (test_release.Tests.test_config_change_blocks_stop) ... ok
@@ -19,6 +19,6 @@ test_git_check_environment_disables_index_helpers_and_lazy_network (test_readonl
 test_target_and_service_boundaries_unchanged (test_readonly.PureModeTests.test_target_and_service_boundaries_unchanged) ... ok
 
 ----------------------------------------------------------------------
-Ran 17 tests in 0.123s
+Ran 17 tests in 0.089s
 
 OK (skipped=1)

@@ -7,5 +7,5 @@ if [ ! -x /usr/bin/bwrap ]; then
     exit 1
 fi
 tool_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
-exec /usr/bin/bwrap --ro-bind / / --unshare-net --die-with-parent -- \
+exec /usr/bin/bwrap --ro-bind / / --unshare-net --die-with-parent --remount-ro /proc/sys/fs/binfmt_misc -- \
     /usr/bin/python3 -I -B -S "$tool_dir/pv-staging-release.py" --check "$@"

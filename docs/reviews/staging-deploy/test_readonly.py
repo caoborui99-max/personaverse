@@ -168,7 +168,7 @@ class KernelBoundaryTests(unittest.TestCase):
         bwrap = shutil.which('bwrap')
         need_sandbox = os.environ.get('PV_REQUIRE_READONLY_SANDBOX') == '1'
         if bwrap:
-            probe = subprocess.run([bwrap, '--ro-bind', '/', '/', '--unshare-net', '--die-with-parent',
+            probe = subprocess.run([bwrap, '--ro-bind', '/', '/', '--unshare-net', '--die-with-parent', '--remount-ro', '/proc/sys/fs/binfmt_misc',
                                     '--', '/usr/bin/python3', '-I', '-B', '-S', '-c',
                                     'import importlib.util; s=importlib.util.spec_from_file_location("r",'+repr(str(SCRIPT))+'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); m.readonly_boundary()'],
                                    env=m.SAFE_ENV, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -187,7 +187,7 @@ class KernelBoundaryTests(unittest.TestCase):
                 root = Path(temp)
                 repo, db, head = fixture(root, variant)
                 before = manifest(root)
-                result = subprocess.run([self.bwrap, '--ro-bind', '/', '/', '--unshare-net', '--die-with-parent',
+                result = subprocess.run([self.bwrap, '--ro-bind', '/', '/', '--unshare-net', '--die-with-parent', '--remount-ro', '/proc/sys/fs/binfmt_misc',
                                          '--', '/usr/bin/python3', '-I', '-B', '-S', '-c', CHILD,
                                          str(SCRIPT), str(repo), str(db), head],
                                         env=m.SAFE_ENV, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
