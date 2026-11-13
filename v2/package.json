@@ -6,7 +6,7 @@
     "node": ">=24 <25"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @pv/web --filter @pv/api dev",
+    "dev": "node scripts/dev.mjs",
     "build": "pnpm --filter @pv/api build && pnpm --filter @pv/web build",
     "typecheck": "tsc --noEmit -p tsconfig.json && pnpm --filter @pv/web typecheck",
     "test": "vitest run",
@@ -14,7 +14,13 @@
     "db:validate": "prisma validate --schema database/schema.prisma",
     "db:generate": "prisma generate --schema database/schema.prisma",
     "contracts:generate": "node --import tsx scripts/generate-openapi.ts",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:database": "node --env-file=.env.test.local node_modules/vitest/vitest.mjs run --config vitest.database.config.ts",
+    "test:database:e2e": "node --env-file=.env.test.local --import tsx scripts/database-browser.ts",
+    "db:test:start": "node scripts/test-postgres.mjs start",
+    "db:test:stop": "node scripts/test-postgres.mjs stop",
+    "db:migrate:local": "node --env-file=.env.local scripts/database.mjs migrate",
+    "admin:init": "node --env-file=.env.local --import tsx scripts/init-admin.ts"
   },
   "devDependencies": {
     "typescript": "5.9.3",
@@ -25,7 +31,8 @@
     "prisma": "6.19.3",
     "@pv/shared": "workspace:*",
     "@prisma/client": "6.19.3",
-    "prettier": "3.6.2"
+    "prettier": "3.6.2",
+    "@node-rs/argon2": "2.2.2"
   },
   "type": "module"
 }

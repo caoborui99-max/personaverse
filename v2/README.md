@@ -1,67 +1,62 @@
-# PersonaVerse 2.0 · 基础工程
+# PersonaVerse 2.0 · 数据库与站长工作空间
 
-独立于旧版的本地开发工程。所有应用数据是明确标记的中性测试资料；没有真实 AI、数据库连接、管理员登录、支付或部署。
+第三阶段实现 PostgreSQL 持久化、Argon2id 管理员认证、站长人格管理与不可变版本。**真实 AI 尚未接入**，聊天回复仍明确标记 mock。没有自动创建管理员、正式人格或部署。
 
-## 环境与安装
+## 本地启动（全新隔离 PostgreSQL）
 
-Node.js 24 LTS，pnpm 11.25.0。依赖精确固定，提交 pnpm-lock.yaml；依赖安装脚本仅允许 workspace 中的明确清单。
+要求 Node.js 24、pnpm 11.25.0、可使用的本机 Docker。所有服务只监听回环地址，不停止已有进程；4310/4311 若被占用须选择其他开发端口。
 
 ```sh
 cd v2
 pnpm install --frozen-lockfile
+pnpm db:test:start
+node --env-file=.env.test.local scripts/database.mjs migrate
+pnpm db:generate
+cp .env.test.local .env.local
+pnpm admin:init
 pnpm dev
 ```
 
-公开页面：http://127.0.0.1:4310 。API 健康检查：http://127.0.0.1:4311/api/v1/health 。两个服务只监听 127.0.0.1，启动前确认这两个新开发端口空闲；若占用，不停止原进程。
+`db:test:start` 生成随机密码和随机回环端口，写入权限 0600、Git 忽略的 `.env.test.local`。容器独立命名、带归属标签、使用临时内存卷；不会使用现有数据库或生产配置。
 
-页面：`/`、`/explore`、`/persona/test-a`、`/chat/test-a`、`/favorites`、`/admin/login`。`/admin` 服务端重定向到登录入口，不提供后台数据。
+`admin:init` 要求交互式终端，打印不含凭据的环境与数据库名，并要求键入数据库名确认；邮箱由你输入，密码隐藏输入两次，至少 12 字符。没有默认密码，不接受密码命令行参数或环境密码；账户已存在会拒绝覆盖。管理员初始化不运行迁移，不创建人格。
 
-默认值直接可运行，无需 .env。`.env.example` 只作配置说明，不会自动载入。调整端口时同时设置 API_PORT、WEB_ORIGIN、API_INTERNAL_URL，并在 web 启动命令中显式调整 --port；不要指向旧服务或生产数据库。
+浏览器：http://127.0.0.1:4310 。管理员：http://127.0.0.1:4310/admin/login 。公开目录初始为空。
 
-## 构建与测试
+停止应用后可执行 `pnpm db:test:stop`，**只移除带匹配归属标签的测试容器和生成的测试配置**，内存测试数据将丢失。如复制过 `.env.local`，该文件也要自行删除或重新从新生成的测试配置复制，避免连接已停止的旧端口。
+
+独立开发库可另配 `.env.local`：APP_ENV=development、数据库名以 personaverse_v2_dev 开头、回环 PostgreSQL。测试使用 APP_ENV=test、personaverse_v2_test。生产要求显式确认和 HTTPS，本阶段无生产连接与操作；初始化和迁移工具拒绝生产环境。
+
+## 验证
 
 ```sh
 pnpm typecheck
 pnpm test
+pnpm test:database
 pnpm build
 pnpm exec playwright install chromium
 pnpm test:e2e
+pnpm test:database:e2e
+pnpm format:check
 ```
 
-已有系统 Chromium 时可使用 `PV_CHROMIUM_PATH=/usr/bin/chromium pnpm test:e2e`。浏览器测试自动启动、停止两个回环地址服务，需要先构建，端口必须空闲。开发服务与浏览器测试不要同时运行。
+浏览器测试需要先构建、保证 4310/4311 空闲。`test:e2e` 保留第二阶段全部 11 条测试，明确启动 PV_MODE=mock-regression；`test:database:e2e` 使用真实 PostgreSQL 的全新随机 schema、随机合成管理员密码，结束自动清理。两组浏览器测试不要并行运行。
 
-构建产物可分别启动：
+已有系统 Chromium 时可加 `PV_CHROMIUM_PATH=/usr/bin/chromium`。数据库测试每次在独立 schema 重放真实迁移、验证并清理，不使用 SQLite，不对公共 schema 做清空操作。
+
+显式检查迁移差异：
 
 ```sh
-pnpm --filter @pv/api start
-# 另一终端
-pnpm --filter @pv/web start
+node --env-file=.env.test.local scripts/database.mjs validate
+node --env-file=.env.test.local scripts/database.mjs diff
 ```
 
-数据库模型可离线校验；以下仅给 Prisma 提供解析用示例 URL，不建立连接：
+迁移永不在请求、服务启动或管理员初始化时自动执行。禁止用 db push 代替审查过的 SQL 迁移。
 
-```sh
-DATABASE_URL=postgresql://pv_test:local_only@127.0.0.1:5433/personaverse_v2_test pnpm db:validate
-pnpm contracts:generate
-```
+## 功能
 
-本阶段不提供自动执行迁移的启动脚本，不要对生产运行 migrate/db push。正式数据库迁移与恢复验证尚未执行。
+站长后台：空白草稿、资料/标签/分类/HTTPS 头像引用、独立内核文本区、保存、版本历史、原文比较、恢复为新版本、明确发布与下架、安全归档、管理员指定版本模拟测试。保存有 revision 冲突检测，旧版本由数据库触发器保护。
 
-## 聊天验收
+公开目录和详情 SSR 查询已发布快照；草稿改动不会提前公开，API 不返回内核。收藏保存在设备，已下架人格不可再公开访问。匿名访客和管理员使用不同 Cookie、数据库实体与 API 命名空间。
 
-直接点击卡片「开始聊天」。支持 20 轮以上模拟回复、同一会话 ID、刷新恢复、人格独立会话、清除全部聊天、消息幂等。输入 `/fail-once` 后点击发送可触发一次 503；点击「重试消息」复用相同消息 ID，不重复保存。
-
-模拟服务只在进程内保存数据，访客 Cookie 24 小时过期；服务重启后历史失效，界面提示并建立新会话。浏览器仅在 pv:v2:\* 命名空间保存会话快照、待重试消息和收藏；不读取或改写旧版收藏。清除按钮删除当前匿名会话的所有服务端演示记录和当前设备本地聊天，不清除收藏。
-
-手机、平板、桌面均有布局；演示阶段 robots 禁止索引。公开资料正文由 Next.js 直接输出 HTML，为后续正式 SSR 收录提供基础。
-
-## 文档
-
-- [架构](docs/architecture.md)
-- [数据库与版本](docs/data-model.md)
-- [API 契约](docs/api-contract.md)、[生成的 OpenAPI](docs/openapi.json)
-- [认证边界](docs/authentication.md)
-- [聊天设计](docs/anonymous-chat.md)
-- [测试与交付状态](docs/phase-1-status.md)
-- [备份恢复规划](docs/backup-restore.md)
-- [完整文件清单](docs/files.md)
+详细说明：[架构](docs/architecture.md)、[认证](docs/authentication.md)、[模型](docs/data-model.md)、[API](docs/api-contract.md)、[OpenAPI](docs/openapi.json)、[本阶段验收](docs/phase-3-status.md)、[本阶段文件清单](docs/phase-3-files.md)。第二阶段记录保留于 phase-1-status.md。

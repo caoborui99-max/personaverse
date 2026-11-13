@@ -27,7 +27,7 @@ export default function Layout({ children }: Readonly<{ children: React.ReactNod
             <Link href="/favorites">我的收藏</Link>
           </nav>
           <span className="mode">
-            <i /> MOCK 演示
+            <i /> AI 未接入
           </span>
         </header>
         <main id="main">{children}</main>

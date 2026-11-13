@@ -7,7 +7,9 @@ export const Persona = z.object({
   category: z.string(),
   summary: z.string(),
   background: z.string(),
-  mock: z.literal(true),
+  mock: z.boolean(),
+  avatarUrl: z.string().optional(),
+  tags: z.array(z.string()).optional(),
 });
 export type Persona = z.infer<typeof Persona>;
 export const Message = z.object({
@@ -38,7 +40,7 @@ export const ErrorEnvelope = z.object({
   }),
 });
 export const PersonaList = z.object({
-  mode: Mode,
+  mode: z.enum(['mock', 'database']),
   items: z.array(Persona),
   total: z.number().int(),
   page: z.number().int(),
@@ -64,3 +66,66 @@ export const fixtures: Persona[] = [
     mock: true,
   },
 ];
+export const DraftFields = z
+  .object({
+    name: z.string().max(80),
+    slug: z
+      .string()
+      .min(1)
+      .max(80)
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    summary: z.string().max(2000),
+    background: z.string().max(50000),
+    avatarUrl: z.union([
+      z.literal(''),
+      z
+        .string()
+        .url()
+        .refine((value) => new URL(value).protocol === 'https:', '头像引用必须为 HTTPS'),
+    ]),
+    tags: z.array(z.string().max(80)).max(30),
+    categoryIds: z.array(z.string().uuid()).max(20),
+    coreText: z.string().max(2_000_000),
+    openingMessage: z.string().max(20000),
+  })
+  .strict();
+export type DraftFields = z.infer<typeof DraftFields>;
+export const SaveDraft = DraftFields.extend({ expectedRevision: z.number().int().min(0) }).strict();
+export const RevisionInput = z.object({ expectedRevision: z.number().int().min(0) }).strict();
+export const CoreVersion = z.object({
+  id: z.string().uuid(),
+  personaId: z.string().uuid(),
+  versionNumber: z.number(),
+  coreText: z.string(),
+  openingMessage: z.string(),
+  profileSnapshot: z.record(z.string(), z.unknown()),
+  createdAt: z.string(),
+  createdBy: z.string(),
+  restoredFromId: z.string().nullable(),
+  author: z.object({ id: z.string(), email: z.string() }).optional(),
+});
+export type CoreVersion = z.infer<typeof CoreVersion>;
+export const AdminPersona = z.object({
+  id: z.string().uuid(),
+  slug: z.string(),
+  name: z.string(),
+  summary: z.string().default(''),
+  background: z.string().default(''),
+  avatarUrl: z.string().nullable().default(null),
+  tags: z.array(z.string()).default([]),
+  status: z.enum(['draft', 'published', 'archived']),
+  revision: z.number(),
+  isTest: z.boolean(),
+  draftVersionId: z.string().nullable(),
+  publishedVersionId: z.string().nullable(),
+  draftVersion: CoreVersion.nullable().default(null),
+  categories: z
+    .array(
+      z.object({
+        categoryId: z.string(),
+        category: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
+      }),
+    )
+    .default([]),
+});
+export type AdminPersona = z.infer<typeof AdminPersona>;

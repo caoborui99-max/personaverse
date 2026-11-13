@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "PersonaVerse V2 mock API",
-    "version": "0.1.0",
-    "description": "Local development only. No real AI, database or administrator authentication. Future contracts are documented separately."
+    "title": "PersonaVerse V2 database API",
+    "version": "0.3.0",
+    "description": "PostgreSQL catalogue and server-side admin sessions. AI replies remain mock. PV_MODE=mock-regression is an isolated phase-2 regression mode."
   },
   "servers": [
     {
@@ -15,7 +15,7 @@
       "get": {
         "responses": {
           "200": {
-            "description": "Service only; database and AI explicitly not connected"
+            "description": "Database connectivity checked; real AI not connected"
           }
         }
       }
@@ -60,7 +60,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -70,7 +70,7 @@
             }
           },
           "400": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -96,14 +96,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Mock profile",
+            "description": "Published profile whitelist",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "mode": {
-                      "const": "mock"
+                      "enum": ["database", "mock"]
                     },
                     "persona": {
                       "$ref": "#/components/schemas/Persona"
@@ -115,7 +115,7 @@
             }
           },
           "404": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -131,20 +131,20 @@
       "get": {
         "responses": {
           "200": {
-            "description": "Neutral mock categories"
+            "description": "Published categories"
           }
         }
       }
     },
     "/visitor/session": {
       "post": {
-        "description": "Exact configured Origin required for every write. Sets HttpOnly mock cookie.",
+        "description": "Exact configured Origin required for every write. Sets an independent HttpOnly visitor cookie.",
         "responses": {
           "200": {
             "description": "Mock anonymous session ready"
           },
           "403": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -154,7 +154,7 @@
             }
           },
           "503": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -184,8 +184,8 @@
           }
         },
         "responses": {
-          "201": {
-            "description": "Mock response",
+          "200": {
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -195,7 +195,7 @@
             }
           },
           "400": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -205,7 +205,7 @@
             }
           },
           "401": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -215,7 +215,7 @@
             }
           },
           "403": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -225,7 +225,7 @@
             }
           },
           "404": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -235,7 +235,7 @@
             }
           },
           "429": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -257,7 +257,7 @@
             "description": "Clears all mock histories owned by current cookie"
           },
           "401": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -267,7 +267,7 @@
             }
           },
           "403": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -299,7 +299,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -309,7 +309,7 @@
             }
           },
           "401": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -319,7 +319,7 @@
             }
           },
           "404": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -349,7 +349,7 @@
         "description": "Same clientMessageId + content is idempotent. /fail-once fails once with 503 before saving.",
         "responses": {
           "200": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -359,7 +359,7 @@
             }
           },
           "400": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -369,7 +369,7 @@
             }
           },
           "401": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -379,7 +379,7 @@
             }
           },
           "403": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -389,7 +389,7 @@
             }
           },
           "404": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -399,7 +399,7 @@
             }
           },
           "409": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -409,7 +409,7 @@
             }
           },
           "429": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -419,7 +419,7 @@
             }
           },
           "503": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -431,11 +431,65 @@
         }
       }
     },
+    "/admin/auth/csrf": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Pre-login CSRF token; sets HttpOnly pre-login cookie"
+          }
+        }
+      }
+    },
     "/admin/auth/login": {
       "post": {
+        "description": "Pre-login cookie + x-csrf-token + trusted Origin required. Does not replace actual session verification.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "maxLength": 256
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
+          "200": {
+            "description": "Opaque session Cookie created; verify with GET session"
+          },
+          "401": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "403": {
-            "description": "Mock response",
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -445,7 +499,7 @@
             }
           },
           "503": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -454,15 +508,27 @@
               }
             }
           }
-        },
-        "description": "Always AUTH_NOT_IMPLEMENTED for valid Origin; never sets an admin cookie."
+        }
       }
     },
     "/admin/auth/session": {
       "get": {
         "responses": {
+          "200": {
+            "description": "Verified admin id, email, role and session-bound csrfToken"
+          },
           "401": {
-            "description": "Mock response",
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -477,8 +543,11 @@
     "/admin/auth/logout": {
       "post": {
         "responses": {
+          "200": {
+            "description": "Session revoked"
+          },
           "401": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -488,7 +557,132 @@
             }
           },
           "403": {
-            "description": "Mock response",
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/auth/password": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Password updated and all sessions revoked"
+          },
+          "400": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/categories": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Administrator category list"
+          },
+          "401": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Category created"
+          },
+          "400": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -503,8 +697,21 @@
     "/admin/personas": {
       "get": {
         "responses": {
+          "200": {
+            "description": "Paginated administrator catalogue; q, status and category filters"
+          },
           "401": {
-            "description": "Mock response",
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -517,8 +724,18 @@
       },
       "post": {
         "responses": {
+          "201": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPersona"
+                }
+              }
+            }
+          },
           "401": {
-            "description": "Mock response",
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -528,7 +745,635 @@
             }
           },
           "403": {
-            "description": "Mock response",
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/personas/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPersona"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveDraft"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPersona"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/personas/{id}/publish": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevisionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPersona"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/personas/{id}/unpublish": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevisionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPersona"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/personas/{id}/archive": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevisionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPersona"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/personas/{id}/versions": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Immutable versions, newest first"
+          },
+          "401": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/personas/{id}/compare": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "description": "from and to version UUIDs must belong to this persona; returns both originals and changed fields",
+        "responses": {
+          "200": {
+            "description": "Version comparison"
+          },
+          "401": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/personas/{id}/restore": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "description": "versionId + expectedRevision; appends new version and snapshot atomically",
+        "responses": {
+          "200": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPersona"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/test/sessions": {
+      "post": {
+        "description": "personaId + versionId; verified owner only, including unpublished versions",
+        "responses": {
+          "200": {
+            "description": "Fixed-version mock test session"
+          },
+          "401": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/test/sessions/{id}/messages": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Owned admin test history"
+          },
+          "401": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mock response; no visitor quota or paid model call"
+          },
+          "401": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Validated response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Validated response",
             "content": {
               "application/json": {
                 "schema": {
@@ -546,7 +1391,12 @@
       "visitorCookie": {
         "type": "apiKey",
         "in": "cookie",
-        "name": "pv_v2_mock"
+        "name": "pv_v2_visitor_local"
+      },
+      "adminCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "pv_v2_admin_local"
       }
     },
     "schemas": {
@@ -685,8 +1535,16 @@
             "type": "string"
           },
           "mock": {
-            "type": "boolean",
-            "const": true
+            "type": "boolean"
+          },
+          "avatarUrl": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": ["id", "slug", "name", "category", "summary", "background", "mock"],
@@ -698,7 +1556,7 @@
         "properties": {
           "mode": {
             "type": "string",
-            "const": "mock"
+            "enum": ["mock", "database"]
           },
           "items": {
             "type": "array",
@@ -726,8 +1584,16 @@
                   "type": "string"
                 },
                 "mock": {
-                  "type": "boolean",
-                  "const": true
+                  "type": "boolean"
+                },
+                "avatarUrl": {
+                  "type": "string"
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "required": ["id", "slug", "name", "category", "summary", "background", "mock"],
@@ -751,6 +1617,409 @@
           }
         },
         "required": ["mode", "items", "total", "page", "limit"],
+        "additionalProperties": false
+      },
+      "SaveDraft": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "slug": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "background": {
+            "type": "string",
+            "maxLength": 50000
+          },
+          "avatarUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": ""
+              },
+              {
+                "type": "string",
+                "format": "uri"
+              }
+            ]
+          },
+          "tags": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          "categoryIds": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "coreText": {
+            "type": "string",
+            "maxLength": 2000000
+          },
+          "openingMessage": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "name",
+          "slug",
+          "summary",
+          "background",
+          "avatarUrl",
+          "tags",
+          "categoryIds",
+          "coreText",
+          "openingMessage",
+          "expectedRevision"
+        ],
+        "additionalProperties": false
+      },
+      "RevisionInput": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": ["expectedRevision"],
+        "additionalProperties": false
+      },
+      "AdminPersona": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "summary": {
+            "default": "",
+            "type": "string"
+          },
+          "background": {
+            "default": "",
+            "type": "string"
+          },
+          "avatarUrl": {
+            "default": null,
+            "type": ["string", "null"]
+          },
+          "tags": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "published", "archived"]
+          },
+          "revision": {
+            "type": "number"
+          },
+          "isTest": {
+            "type": "boolean"
+          },
+          "draftVersionId": {
+            "type": ["string", "null"]
+          },
+          "publishedVersionId": {
+            "type": ["string", "null"]
+          },
+          "draftVersion": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personaId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "versionNumber": {
+                    "type": "number"
+                  },
+                  "coreText": {
+                    "type": "string"
+                  },
+                  "openingMessage": {
+                    "type": "string"
+                  },
+                  "profileSnapshot": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "createdBy": {
+                    "type": "string"
+                  },
+                  "restoredFromId": {
+                    "type": ["string", "null"]
+                  },
+                  "author": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["id", "email"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "id",
+                  "personaId",
+                  "versionNumber",
+                  "coreText",
+                  "openingMessage",
+                  "profileSnapshot",
+                  "createdAt",
+                  "createdBy",
+                  "restoredFromId"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "categories": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "categoryId": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "slug": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["id", "name", "slug"],
+                  "additionalProperties": false
+                }
+              },
+              "required": ["categoryId", "category"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "summary",
+          "background",
+          "avatarUrl",
+          "tags",
+          "status",
+          "revision",
+          "isTest",
+          "draftVersionId",
+          "publishedVersionId",
+          "draftVersion",
+          "categories"
+        ],
+        "additionalProperties": false
+      },
+      "CoreVersion": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "personaId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "versionNumber": {
+            "type": "number"
+          },
+          "coreText": {
+            "type": "string"
+          },
+          "openingMessage": {
+            "type": "string"
+          },
+          "profileSnapshot": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "restoredFromId": {
+            "type": ["string", "null"]
+          },
+          "author": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "email"],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "personaId",
+          "versionNumber",
+          "coreText",
+          "openingMessage",
+          "profileSnapshot",
+          "createdAt",
+          "createdBy",
+          "restoredFromId"
+        ],
+        "additionalProperties": false
+      },
+      "DraftFields": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "slug": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "background": {
+            "type": "string",
+            "maxLength": 50000
+          },
+          "avatarUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": ""
+              },
+              {
+                "type": "string",
+                "format": "uri"
+              }
+            ]
+          },
+          "tags": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          "categoryIds": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "coreText": {
+            "type": "string",
+            "maxLength": 2000000
+          },
+          "openingMessage": {
+            "type": "string",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "name",
+          "slug",
+          "summary",
+          "background",
+          "avatarUrl",
+          "tags",
+          "categoryIds",
+          "coreText",
+          "openingMessage"
+        ],
         "additionalProperties": false
       }
     }

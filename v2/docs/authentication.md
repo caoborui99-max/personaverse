@@ -1,21 +1,25 @@
-# 管理员认证
+# 管理员认证与安全边界
 
-## 当前行为
+## 账户和 Cookie
 
-/admin 在服务端无条件重定向 /admin/login。登录表单不可提交。POST /api/v1/admin/auth/login 在正确 Origin 下返回 503 AUTH_NOT_IMPLEMENTED，不签发 Cookie。其他任何 /api/v1/admin 路径默认 401；跨源写请求先返回 403。包括未知路由，伪造 Cookie、Bearer admin、x-admin 都不能授予权限。
+唯一邮箱 trim/lowercase；密码 Argon2id（19456 KiB、2 次、parallelism=1）加随机盐。初始化必须独立交互执行，没有默认账户或密码。owner 具有内容修改权限，viewer 只读；未认证 401，权限不足/CSRF 403，数据库不可用 503。
 
-没有前端 isAdmin 状态或假登录。访客只拥有 mock Cookie，不能访问管理员资源。数据库与真实会话未接入。
+登录生成随机 256 位不透明令牌，数据库仅保存 SHA-256 摘要。会话绝对期限 12 小时、空闲期限 30 分钟，每次访问验证管理员状态与 authVersion。退出立即撤销当前会话；修改密码在事务内增加 authVersion 并撤销全部旧会话。登录与改密的并发使用行锁/条件更新，防止凭据变更后创建有效旧凭据会话。
 
-## 正式实现方案（未实现）
+HTTPS 使用 \_\_Host-pv_v2_admin，Secure/HttpOnly/SameSite=Lax/Path=/，无 Domain。HTTP 本地使用独立 pv_v2_admin_local，永不依赖客户端头部判断 HTTPS。production 必须配置 HTTPS 与明确的数据库安全确认。匿名访客采用独立 Cookie 和 VisitorSession，不能被识别为管理员。
 
-- 独立 AdminAccount，密码 Argon2id 加盐哈希；无环境明文密码作为长期账户。
-- 256 位随机不透明会话令牌；数据库只存 SHA-256 摘要，支持空闲/绝对到期、退出及改密撤销。
-- 生产 \_\_Host- Cookie、Secure、HttpOnly、SameSite=Lax、Path=/，不设置 Domain。
-- 精确可信 Origin + 会话绑定 CSRF token；登录防 CSRF；反向代理配置显式声明，不信任任意 forwarded 头。
-- 密码登录成功后再次请求真实会话并确认后才显示后台。
-- 管理员与访客独立表、Cookie 和解析器；所有管理 API 统一服务端鉴权。
-- 数据库故障返回 503 并拒绝访问；401/403/429 与配置错误分开处理，日志不含凭据。
-- 来源与账户组合登录限流；管理员行为追加审计。
-- 管理员可测试未发布人格，不受访客次数、每日额度或付费检查。仍受请求超时、并发保护与全站费用熔断。
+## Origin 与 CSRF
 
-以上生产行为均有 todo 测试占位，未虚报为本阶段已实现。
+所有写请求的 Origin 必须精确等于配置 WEB_ORIGIN，拒绝跨站 Sec-Fetch-Site。不开放宽泛 CORS，不信任任意 Forwarded 头。
+
+登录前 GET /admin/auth/csrf 产生随机 HttpOnly 预登录 Cookie，返回由该 Cookie 派生的 CSRF token；POST login 必须同时有对应 Cookie 与 X-CSRF-Token。登录成功后 GET session 再次确认实际持久会话并返回会话绑定 token；其他管理写请求都要求该 token。仅收到登录 200 不会打开后台。
+
+登录限流持久化于 LoginAttempt：每 15 分钟账户 10 次、来源 30 次，包含成功与失败尝试。来源使用实际 req.ip，trustProxy=false；同源开发代理会聚合为 loopback 来源，这是一项保守保护，不采信伪造 IP。以后部署若需代理来源识别，必须另行配置可信代理而不能放宽当前验证。
+
+## 审计与错误
+
+初始化、登录、退出、改密、人格/分类保存、发布、下架、归档、恢复和版本测试追加审计。审计记录动作、对象、修订/版本关联和请求 ID，不复制密码、令牌、连接串或内核原文。审计记录不可原地修改/删除。
+
+数据库错误统一脱敏返回 503，不转为认证成功；冲突返回 409，字段错误 400。所有管理路径（包括未知路径）先鉴权，访客身份、前端布尔值、Bearer admin 或伪造角色头都无效。后台 SSR 使用 no-store 的会话校验；退出后完整导航离开受保护空间。
+
+测试已覆盖会话撤销/过期、改密、错误密码、伪造身份、CSRF、限流、只读角色、HTTPS Cookie 与数据库不可用。真实生产 HTTPS 代理和实体 Safari 验收尚未执行。

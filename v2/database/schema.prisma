@@ -12,6 +12,8 @@ model AdminAccount {
   email        String               @unique @db.VarChar(254)
   passwordHash String
   status       String               @default("active")
+  role         String               @default("owner")
+  authVersion  Int                  @default(1)
   createdAt    DateTime             @default(now()) @db.Timestamptz
   sessions     AdminSession[]
   versions     PersonaCoreVersion[]
@@ -20,14 +22,15 @@ model AdminAccount {
 }
 
 model AdminSession {
-  id         String       @id @default(uuid()) @db.Uuid
-  adminId    String       @db.Uuid
-  tokenHash  String       @unique @db.Char(64)
-  createdAt  DateTime     @default(now()) @db.Timestamptz
-  expiresAt  DateTime     @db.Timestamptz
-  lastSeenAt DateTime     @default(now()) @db.Timestamptz
-  revokedAt  DateTime?    @db.Timestamptz
-  admin      AdminAccount @relation(fields: [adminId], references: [id], onDelete: Restrict)
+  id          String       @id @default(uuid()) @db.Uuid
+  adminId     String       @db.Uuid
+  tokenHash   String       @unique @db.Char(64)
+  authVersion Int          @default(1)
+  createdAt   DateTime     @default(now()) @db.Timestamptz
+  expiresAt   DateTime     @db.Timestamptz
+  lastSeenAt  DateTime     @default(now()) @db.Timestamptz
+  revokedAt   DateTime?    @db.Timestamptz
+  admin       AdminAccount @relation(fields: [adminId], references: [id], onDelete: Restrict)
 
   @@index([adminId, expiresAt])
   @@index([expiresAt])
@@ -41,11 +44,17 @@ model Persona {
   background         String               @default("")
   avatarUrl          String?
   status             String               @default("draft")
+  revision           Int                  @default(0)
+  tags               String[]             @default([])
+  isTest             Boolean              @default(false)
   draftVersionId     String?              @db.Uuid
+  publishedSlug      String?              @unique @db.VarChar(80)
   publishedVersionId String?              @db.Uuid
   createdAt          DateTime             @default(now()) @db.Timestamptz
   updatedAt          DateTime             @updatedAt @db.Timestamptz
-  versions           PersonaCoreVersion[]
+  versions           PersonaCoreVersion[] @relation("PersonaVersions")
+  draftVersion       PersonaCoreVersion?  @relation("DraftVersion", fields: [id, draftVersionId], references: [personaId, id], onDelete: Restrict, onUpdate: NoAction, map: "persona_draft_version_owner")
+  publishedVersion   PersonaCoreVersion?  @relation("PublishedVersion", fields: [id, publishedVersionId], references: [personaId, id], onDelete: Restrict, onUpdate: NoAction, map: "persona_published_version_owner")
   categories         PersonaCategory[]
   chats              ChatSession[]
 
@@ -53,17 +62,21 @@ model Persona {
 }
 
 model PersonaCoreVersion {
-  id              String        @id @default(uuid()) @db.Uuid
-  personaId       String        @db.Uuid
+  id              String               @id @default(uuid()) @db.Uuid
+  personaId       String               @db.Uuid
   versionNumber   Int
   coreText        String
   openingMessage  String
   profileSnapshot Json
-  createdBy       String        @db.Uuid
-  restoredFromId  String?       @db.Uuid
-  createdAt       DateTime      @default(now()) @db.Timestamptz
-  persona         Persona       @relation(fields: [personaId], references: [id], onDelete: Restrict)
-  author          AdminAccount  @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  createdBy       String               @db.Uuid
+  restoredFromId  String?              @db.Uuid
+  createdAt       DateTime             @default(now()) @db.Timestamptz
+  persona         Persona              @relation("PersonaVersions", fields: [personaId], references: [id], onDelete: Restrict)
+  draftFor        Persona[]            @relation("DraftVersion")
+  publishedFor    Persona[]            @relation("PublishedVersion")
+  restoredFrom    PersonaCoreVersion?  @relation("RestoredVersion", fields: [personaId, restoredFromId], references: [personaId, id], onDelete: Restrict, onUpdate: NoAction, map: "restored_version_owner")
+  restorations    PersonaCoreVersion[] @relation("RestoredVersion")
+  author          AdminAccount         @relation(fields: [createdBy], references: [id], onDelete: Restrict)
   chats           ChatSession[]
 
   @@unique([personaId, versionNumber])
@@ -146,6 +159,8 @@ model ChatRequest {
   createdAt       DateTime    @default(now()) @db.Timestamptz
   session         ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
+  usage AiUsageRecord?
+
   @@unique([sessionId, clientMessageId])
 }
 
@@ -163,6 +178,7 @@ model AiUsageRecord {
   status       String
   createdAt    DateTime    @default(now()) @db.Timestamptz
   session      ChatSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  request      ChatRequest @relation(fields: [requestId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "usage_request")
 
   @@index([createdAt, status])
 }
@@ -190,4 +206,10 @@ model AdminAuditLog {
 
   @@index([adminId, createdAt])
   @@index([objectType, objectId, createdAt])
+}
+
+model LoginAttempt {
+  key         String   @id @db.Char(64)
+  windowStart DateTime @db.Timestamptz
+  count       Int      @default(0)
 }

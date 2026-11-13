@@ -15,6 +15,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'pnpm --filter @pv/api start',
+      env: { PV_MODE: 'mock-regression' },
       url: 'http://127.0.0.1:4311/api/v1/health',
       reuseExistingServer: false,
     },

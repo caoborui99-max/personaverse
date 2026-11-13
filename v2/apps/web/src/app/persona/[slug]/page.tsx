@@ -1,17 +1,18 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { fixtures } from '@pv/shared';
+import { publicPersona } from '../../../lib/server-api';
+export const dynamic = 'force-dynamic';
 import { FavoriteButton } from '../../../components/storage-ui';
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   return {
-    title: fixtures.find((p) => p.slug === slug)?.name ?? '人格不存在',
+    title: (await publicPersona(slug))?.name ?? '人格不存在',
     robots: { index: false },
   };
 }
 export default async function PersonaPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const p = fixtures.find((p) => p.slug === slug);
+  const p = await publicPersona(slug);
   if (!p) notFound();
   return (
     <section className="page section">
@@ -25,7 +26,7 @@ export default async function PersonaPage({ params }: { params: Promise<{ slug: 
           <span className="art-label">PERSONA / TEST</span>
         </div>
         <div className="profile-copy">
-          <p className="eyebrow">中性测试资料 / MOCK</p>
+          <p className="eyebrow">{p.mock ? '中性测试资料 / MOCK' : '站长发布 / PERSONA'}</p>
           <h1>{p.name}</h1>
           <p className="page-description">{p.summary}</p>
           <span className="tag">{p.category}</span>

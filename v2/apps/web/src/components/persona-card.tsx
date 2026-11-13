@@ -6,9 +6,15 @@ export function PersonaCard({ persona, index = 0 }: { persona: Persona; index?: 
     <article className="persona-card">
       <div className={'avatar-art art-' + index}>
         <span className="orbit" />
-        <span className="orb" />
-        <span className="art-label">TEST / 00{index + 1}</span>
-        <span className="mock-label">中性测试资料</span>
+        {persona.avatarUrl ? (
+          <img className="persona-image" src={persona.avatarUrl} alt={persona.name} />
+        ) : (
+          <span className="orb" />
+        )}
+        <span className="art-label">
+          {persona.mock ? 'TEST' : 'PERSONA'} / 00{index + 1}
+        </span>
+        <span className="mock-label">{persona.mock ? '中性测试资料' : '已发布'}</span>
       </div>
       <div className="card-content">
         <div className="card-heading">

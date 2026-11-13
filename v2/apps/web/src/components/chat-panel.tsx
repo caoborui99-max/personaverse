@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { z } from 'zod';
-import { ChatSession, fixtures, type Persona } from '@pv/shared';
+import { ChatSession, type Persona } from '@pv/shared';
 import { ApiError, createClient } from '@pv/api-client';
 const api = createClient();
 const Pending = z.object({
@@ -32,7 +32,7 @@ function persist(slug: string, session: ChatSession, pending: Pending | null) {
     return false;
   }
 }
-export function ChatPanel({ persona }: { persona: Persona }) {
+export function ChatPanel({ persona, personas }: { persona: Persona; personas: Persona[] }) {
   const [session, setSession] = useState<ChatSession | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [input, setInput] = useState('');
@@ -138,11 +138,10 @@ export function ChatPanel({ persona }: { persona: Persona }) {
     try {
       await api.visitor();
       await api.clear();
-      for (const p of fixtures) {
-        try {
-          localStorage.removeItem(key(p.slug));
-        } catch {}
-      }
+      try {
+        for (const savedKey of Object.keys(localStorage))
+          if (savedKey.startsWith('pv:v2:chat:')) localStorage.removeItem(savedKey);
+      } catch {}
       setSession(null);
       setPending(null);
       setInput('');
@@ -164,7 +163,7 @@ export function ChatPanel({ persona }: { persona: Persona }) {
           ← 返回探索
         </Link>
         <p className="eyebrow">CONVERSATIONS</p>
-        {fixtures.map((p) => (
+        {personas.map((p) => (
           <Link
             className={'chat-persona ' + (p.slug === persona.slug ? 'active' : '')}
             key={p.slug}
@@ -173,7 +172,7 @@ export function ChatPanel({ persona }: { persona: Persona }) {
             <span className="mini-avatar">{p.slug === 'test-a' ? 'A' : 'B'}</span>
             <span>
               {p.name}
-              <small>中性测试资料</small>
+              <small>{p.mock ? '中性测试资料' : '站长发布'}</small>
             </span>
             <span>↗</span>
           </Link>
@@ -199,7 +198,7 @@ export function ChatPanel({ persona }: { persona: Persona }) {
           </button>
         </header>
         <div className="mobile-switch">
-          {fixtures.map((p) => (
+          {personas.map((p) => (
             <Link key={p.slug} href={'/chat/' + p.slug}>
               {p.name} ↗
             </Link>
