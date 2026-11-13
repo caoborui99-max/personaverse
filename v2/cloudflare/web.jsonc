@@ -1,0 +1,11 @@
+{
+  "name": "pv-web-local-only",
+  "main": "web-worker.ts",
+  "compatibility_date": "2026-11-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": { "PV_WORKERS_ADAPTER": "opennext" },
+  "assets": { "directory": "../apps/web/.open-next/assets", "binding": "ASSETS" },
+  "services": [{ "binding": "API", "service": "pv-api-local-only" }],
+}

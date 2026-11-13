@@ -20,7 +20,13 @@
     "db:test:start": "node scripts/test-postgres.mjs start",
     "db:test:stop": "node scripts/test-postgres.mjs stop",
     "db:migrate:local": "node --env-file=.env.local scripts/database.mjs migrate",
-    "admin:init": "node --env-file=.env.local --import tsx scripts/init-admin.ts"
+    "admin:init": "node --env-file=.env.local --import tsx scripts/init-admin.ts",
+    "cf:client": "node scripts/generate-worker-client.mjs",
+    "cf:build": "node scripts/cf-local.mjs build",
+    "cf:dev": "node scripts/cf-local.mjs dev",
+    "cf:verify": "node scripts/validate-worker-local.mjs",
+    "cf:typecheck": "tsc --noEmit -p cloudflare/tsconfig.json",
+    "ai:recover:test": "node --env-file=.env.test.local --import tsx scripts/ai-recover.ts"
   },
   "devDependencies": {
     "typescript": "5.9.3",
@@ -32,7 +38,13 @@
     "@pv/shared": "workspace:*",
     "@prisma/client": "6.19.3",
     "prettier": "3.6.2",
-    "@node-rs/argon2": "2.2.2"
+    "@node-rs/argon2": "2.2.2",
+    "wrangler": "4.161.0",
+    "@opennextjs/cloudflare": "1.20.17",
+    "@prisma/adapter-pg": "6.19.3",
+    "pg": "8.23.1",
+    "@types/pg": "8.15.6",
+    "hash-wasm": "4.13.0"
   },
   "type": "module"
 }

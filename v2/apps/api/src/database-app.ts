@@ -1,3 +1,4 @@
+import { budgetRoutes } from './ai/routes.ts';
 import Fastify from 'fastify';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { z } from 'zod';
@@ -7,7 +8,12 @@ import { chatRoutes } from './chat.ts';
 import { ApiFailure, fail } from './errors.ts';
 import { databaseConfig, type DatabaseConfig } from './config.ts';
 export function buildDatabaseApp(
-  options: { config?: DatabaseConfig; db?: PrismaClient; clock?: () => number } = {},
+  options: {
+    config?: DatabaseConfig;
+    db?: PrismaClient;
+    clock?: () => number;
+    fakeBudgetTestMode?: boolean;
+  } = {},
 ) {
   const config = options.config ?? databaseConfig();
   const db =
@@ -126,5 +132,12 @@ export function buildDatabaseApp(
   auth.routes(app);
   personaRoutes(app, db, auth);
   chatRoutes(app, db, auth, config);
+  budgetRoutes(
+    app,
+    db,
+    auth,
+    config.environment === 'test' && options.fakeBudgetTestMode === true,
+    config.secure,
+  );
   return app;
 }

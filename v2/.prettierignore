@@ -8,3 +8,11 @@ playwright-report
 database/migrations
 
 apps/web/next-env.d.ts
+
+cloudflare/generated
+cloudflare/schema.prisma
+cloudflare/.wrangler
+.local-cf-config
+.open-next
+
+cloudflare/**/.wrangler

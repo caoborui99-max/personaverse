@@ -129,6 +129,7 @@ model ChatSession {
   usage         AiUsageRecord[]
   requests      ChatRequest[]
 
+  @@unique([id, coreVersionId])
   @@index([adminId, updatedAt])
   @@index([visitorId, updatedAt])
 }
@@ -149,18 +150,28 @@ model ChatMessage {
 }
 
 model ChatRequest {
-  id              String      @id @default(uuid()) @db.Uuid
-  sessionId       String      @db.Uuid
-  clientMessageId String      @db.Uuid
-  fingerprint     String      @db.Char(64)
-  status          String
-  leaseExpiresAt  DateTime?   @db.Timestamptz
-  response        Json?
-  createdAt       DateTime    @default(now()) @db.Timestamptz
-  session         ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id                   String          @id @default(uuid()) @db.Uuid
+  sessionId            String          @db.Uuid
+  clientMessageId      String          @db.Uuid
+  fingerprint          String          @db.Char(64)
+  status               String
+  coreVersionId        String          @db.Uuid
+  inputText            String
+  contextSequence      Int             @default(0)
+  maxOutputTokens      Int
+  estimatedInputTokens Int
+  fencingToken         BigInt          @default(0)
+  updatedAt            DateTime        @default(now()) @db.Timestamptz
+  errorCode            String?
+  leaseExpiresAt       DateTime?       @db.Timestamptz
+  response             Json?
+  createdAt            DateTime        @default(now()) @db.Timestamptz
+  session              ChatSession     @relation(fields: [sessionId, coreVersionId], references: [id, coreVersionId], onDelete: Restrict, onUpdate: NoAction, map: "ChatRequest_sessionId_fkey")
+  reservation          AiReservation?
+  ledger               AiLedgerEntry[]
+  usage                AiUsageRecord?
 
-  usage AiUsageRecord?
-
+  @@unique([sessionId, id])
   @@unique([sessionId, clientMessageId])
 }
 
@@ -178,8 +189,9 @@ model AiUsageRecord {
   status       String
   createdAt    DateTime    @default(now()) @db.Timestamptz
   session      ChatSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
-  request      ChatRequest @relation(fields: [requestId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "usage_request")
+  request      ChatRequest @relation(fields: [sessionId, requestId], references: [sessionId, id], onDelete: Restrict, onUpdate: NoAction, map: "usage_request")
 
+  @@unique([sessionId, requestId])
   @@index([createdAt, status])
 }
 
@@ -212,4 +224,90 @@ model LoginAttempt {
   key         String   @id @db.Char(64)
   windowStart DateTime @db.Timestamptz
   count       Int      @default(0)
+}
+
+model AiControl {
+  id              String  @id @default("global")
+  privacySalt     String  @default(dbgenerated("((gen_random_uuid())::text || (gen_random_uuid())::text)"))
+  fakeEnabled     Boolean @default(false)
+  circuitOpen     Boolean @default(false)
+  reason          String  @default("")
+  priceVersion    String  @default("")
+  maxRequestUnits BigInt  @default(0)
+  maxInputTokens  Int     @default(0)
+  maxOutputTokens Int     @default(0)
+  maxRunning      Int     @default(0)
+  ratePerMinute   Int     @default(0)
+  requestsPerDay  Int     @default(0)
+}
+
+model AiPrice {
+  version      String          @id
+  currency     String          @db.Char(3)
+  inputUnits   BigInt
+  outputUnits  BigInt
+  simulated    Boolean         @default(true)
+  reservations AiReservation[]
+}
+
+model AiBudget {
+  id            String   @id @default(uuid()) @db.Uuid
+  scope         String
+  subject       String
+  period        String
+  currency      String   @db.Char(3)
+  limitUnits    BigInt   @default(0)
+  reservedUnits BigInt   @default(0)
+  spentUnits    BigInt   @default(0)
+  holds         AiHold[]
+
+  @@unique([scope, subject, period, currency])
+}
+
+model AiReservation {
+  id           String      @id @default(uuid()) @db.Uuid
+  requestId    String      @unique @db.Uuid
+  request      ChatRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  priceVersion String
+  price        AiPrice     @relation(fields: [priceVersion], references: [version], onDelete: Restrict)
+  amountUnits  BigInt
+  status       String      @default("held")
+  createdAt    DateTime    @default(now()) @db.Timestamptz
+  holds        AiHold[]
+}
+
+model AiHold {
+  reservationId String        @db.Uuid
+  budgetId      String        @db.Uuid
+  reservation   AiReservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  budget        AiBudget      @relation(fields: [budgetId], references: [id], onDelete: Restrict)
+
+  @@id([reservationId, budgetId])
+}
+
+model AiLedgerEntry {
+  id        String      @id @default(uuid()) @db.Uuid
+  requestId String      @db.Uuid
+  request   ChatRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  kind      String
+  units     BigInt
+  currency  String      @db.Char(3)
+  evidence  String      @unique
+  simulated Boolean     @default(true)
+  createdAt DateTime    @default(now()) @db.Timestamptz
+
+  @@index([requestId, createdAt])
+}
+
+model AiRateBucket {
+  key       String   @id
+  count     Int      @default(0)
+  expiresAt DateTime @db.Timestamptz
+}
+
+model AiSafetyEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  requestId String?
+  code      String
+  createdAt DateTime @default(now()) @db.Timestamptz
 }

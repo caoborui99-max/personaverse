@@ -1,3 +1,4 @@
+import { resourceGate } from './ai/resources.ts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { PrismaClient } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
@@ -57,6 +58,8 @@ export function chatRoutes(
         where: { id: id(req), ...(admin ? { adminId: owner } : { visitorId: owner }) },
         include: { persona: true },
       })) ?? fail(404, 'CHAT_NOT_FOUND', '会话不存在。');
+    if (req.method === 'POST' && s.status !== 'active') fail(409, 'CHAT_CLOSED', '会话已关闭。');
+    if (admin && s.persona.status === 'archived') fail(404, 'PERSONA_NOT_FOUND', '人格已归档。');
     if (!admin && (s.persona.status !== 'published' || s.persona.isTest))
       fail(404, 'PERSONA_NOT_FOUND', '人格未发布。');
     return s;
@@ -90,10 +93,18 @@ export function chatRoutes(
         where: { publishedSlug: body.personaSlug, status: 'published', isTest: false },
       })) ?? fail(404, 'PERSONA_NOT_FOUND', '人格未发布。');
     if (!p.publishedVersionId) fail(404, 'PERSONA_NOT_FOUND', '人格未发布。');
-    if ((await db.chatSession.count({ where: { visitorId: v.id } })) >= 50)
-      fail(429, 'SESSION_LIMIT', '请清除旧会话。');
-    const s = await db.chatSession.create({
-      data: { personaId: p.id, coreVersionId: p.publishedVersionId, visitorId: v.id },
+    const s = await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "VisitorSession" WHERE id=${v.id}::uuid FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM "Persona" WHERE id=${p.id}::uuid FOR SHARE`;
+      const current = await tx.persona.findUniqueOrThrow({ where: { id: p.id } });
+      if (current.status !== 'published' || current.isTest || !current.publishedVersionId)
+        fail(404, 'PERSONA_NOT_FOUND', '人格未发布。');
+      if ((await tx.chatSession.count({ where: { visitorId: v.id } })) >= 50)
+        fail(429, 'SESSION_LIMIT', '请清除旧会话。');
+      await resourceGate(tx, v.id, req.ip, 'session', false);
+      return tx.chatSession.create({
+        data: { personaId: current.id, coreVersionId: current.publishedVersionId, visitorId: v.id },
+      });
     });
     return dto(s.id);
   });
@@ -110,6 +121,7 @@ export function chatRoutes(
     )
       fail(404, 'VERSION_NOT_FOUND', '测试版本不存在。');
     const chat = await db.$transaction(async (tx) => {
+      await resourceGate(tx, s.adminId, req.ip, 'session', true);
       const c = await tx.chatSession.create({
         data: { personaId: body.personaId, coreVersionId: body.versionId, adminId: s.adminId },
       });
@@ -129,6 +141,11 @@ export function chatRoutes(
   });
   for (const admin of [false, true]) {
     const prefix = admin ? '/api/v1/admin/test/sessions' : '/api/v1/chat/sessions';
+    app.post(prefix + '/:id/close', async (req) => {
+      const s = await owned(req, admin);
+      await db.chatSession.update({ where: { id: s.id }, data: { status: 'closed' } });
+      return { closed: true };
+    });
     app.get(prefix + '/:id/messages', async (req) => dto((await owned(req, admin)).id));
     app.post(prefix + '/:id/messages', async (req) => {
       const session = await owned(req, admin),
@@ -143,6 +160,15 @@ export function chatRoutes(
         async (tx) => {
           // NOWAIT rejects concurrent work instead of leaving stuck locks. Transaction releases on failure.
           await tx.$queryRaw`SELECT id FROM "ChatSession" WHERE id=${session.id}::uuid FOR UPDATE NOWAIT`;
+          const current = await tx.chatSession.findUniqueOrThrow({ where: { id: session.id } });
+          await tx.$queryRaw`SELECT id FROM "Persona" WHERE id=${current.personaId}::uuid FOR SHARE`;
+          const persona = await tx.persona.findUniqueOrThrow({ where: { id: current.personaId } });
+          if (current.status !== 'active') fail(409, 'CHAT_CLOSED', '会话已关闭。');
+          if (
+            (!admin && (persona.status !== 'published' || persona.isTest)) ||
+            (admin && persona.status === 'archived')
+          )
+            fail(404, 'PERSONA_NOT_FOUND', '人格不可用。');
           const prior = await tx.chatMessage.findFirst({
             where: { sessionId: session.id, clientMessageId: body.clientMessageId, role: 'user' },
           });
@@ -151,6 +177,19 @@ export function chatRoutes(
               fail(409, 'IDEMPOTENCY_CONFLICT', '消息 ID 已用于不同内容。');
             return;
           }
+          if (
+            await tx.chatRequest.count({
+              where: { sessionId: session.id, status: { in: ['reserved', 'running', 'unknown'] } },
+            })
+          )
+            fail(409, 'SESSION_BUSY', '会话已有请求正在处理。');
+          await resourceGate(
+            tx,
+            admin ? session.adminId! : session.visitorId!,
+            req.ip,
+            'message',
+            admin,
+          );
           const count = await tx.chatMessage.count({ where: { sessionId: session.id } });
           if (!admin && count >= 1000) fail(429, 'HISTORY_LIMIT', '演示记录已满。');
           await tx.chatMessage.createMany({

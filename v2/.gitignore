@@ -8,3 +8,15 @@ test-results/
 *.tsbuildinfo
 
 .pnpm-store/
+cloudflare/generated/
+cloudflare/.wrangler/
+cloudflare/.dev.vars*
+apps/web/.open-next/
+apps/web/.wrangler/
+.local-cf-config/
+
+cloudflare/schema.prisma
+
+cloudflare/**/.dev.vars*
+
+cloudflare/**/.wrangler/

@@ -4,8 +4,18 @@ import { redirect } from 'next/navigation';
 import { Persona, PersonaList } from '@pv/shared';
 import { z } from 'zod';
 const base = () => (process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:4311') + '/api/v1';
+async function apiFetch(url: string, options: RequestInit) {
+  if (process.env.PV_WORKERS_ADAPTER === 'opennext') {
+    const { getCloudflareContext } = await import('@opennextjs/cloudflare');
+    const env = getCloudflareContext().env as unknown as {
+      API: { fetch: (r: Request) => Promise<Response> };
+    };
+    return env.API.fetch(new Request(url, options));
+  }
+  return fetch(url, options);
+}
 export async function publicList(query = '') {
-  const res = await fetch(base() + '/personas' + query, {
+  const res = await apiFetch(base() + '/personas' + query, {
     cache: 'no-store',
     signal: AbortSignal.timeout(10000),
   });
@@ -13,7 +23,7 @@ export async function publicList(query = '') {
   return PersonaList.parse(await res.json());
 }
 export async function publicPersona(slug: string) {
-  const res = await fetch(base() + '/personas/' + encodeURIComponent(slug), {
+  const res = await apiFetch(base() + '/personas/' + encodeURIComponent(slug), {
     cache: 'no-store',
     signal: AbortSignal.timeout(10000),
   });
@@ -22,7 +32,7 @@ export async function publicPersona(slug: string) {
   return Persona.parse((await res.json()).persona);
 }
 export async function mockMode() {
-  const res = await fetch(base() + '/health', {
+  const res = await apiFetch(base() + '/health', {
     cache: 'no-store',
     signal: AbortSignal.timeout(10000),
   });
@@ -31,7 +41,7 @@ export async function mockMode() {
 }
 export async function requireAdminPage() {
   const jar = await cookies();
-  const res = await fetch(base() + '/admin/auth/session', {
+  const res = await apiFetch(base() + '/admin/auth/session', {
     headers: { cookie: jar.toString() },
     cache: 'no-store',
     signal: AbortSignal.timeout(10000),
@@ -44,7 +54,7 @@ export async function requireAdminPage() {
 }
 
 export async function publicCategories() {
-  const res = await fetch(base() + '/categories', {
+  const res = await apiFetch(base() + '/categories', {
     cache: 'no-store',
     signal: AbortSignal.timeout(10000),
   });

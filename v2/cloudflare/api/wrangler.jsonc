@@ -1,0 +1,13 @@
+{
+  "name": "pv-api-local-only",
+  "main": "../api-worker.ts",
+  "compatibility_date": "2026-11-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "alias": {
+    "@prisma/client": "../generated/client/client.ts",
+    "@node-rs/argon2": "../argon-wasm.ts",
+  },
+  "vars": { "WEB_ORIGIN": "http://127.0.0.1:4320" },
+}
