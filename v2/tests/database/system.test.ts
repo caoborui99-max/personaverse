@@ -21,7 +21,7 @@ it('authenticates using Argon2id and confirms actual opaque database session', a
   const row = await h.db.adminSession.findFirstOrThrow({ where: { adminId: h.admin.id } });
   expect(row.tokenHash).not.toBe(raw);
   expect(h.admin.passwordHash).toMatch(/^\$argon2id\$/);
-  expect(res.headers['set-cookie']).toContain('HttpOnly; SameSite=Lax');
+  expect(res.headers['set-cookie']).toContain('HttpOnly; SameSite=Strict');
 });
 it('rejects wrong passwords, unauthenticated and forged administrators', async () => {
   expect((await h.login('wrong-password')).res.statusCode).toBe(401);
@@ -197,7 +197,7 @@ it('creates blank draft, saves exact original source and validates publication',
     method: 'POST',
     url: `/api/v1/admin/personas/${p.id}/publish`,
     headers,
-    payload: { expectedRevision: 1 },
+    payload: { expectedRevision: 1, expectedVersionId: save.json().draftVersionId },
   });
   expect(pub.statusCode).toBe(200);
   const publicResult = await h.app.inject('/api/v1/personas/' + fields.slug);
@@ -449,7 +449,7 @@ it('persists visitor mock chat for 20 rounds with idempotency, retry, fixed vers
         method: 'POST',
         url: `/api/v1/admin/personas/${p.id}/publish`,
         headers,
-        payload: { expectedRevision: 1 },
+        payload: { expectedRevision: 1, expectedVersionId: versionId },
       })
     ).statusCode,
   ).toBe(200);

@@ -25,10 +25,12 @@ export function authService(db: PrismaClient, config: DatabaseConfig, clock: () 
       ?.slice(name.length + 1);
     return value && /^[a-f0-9]{64}$/.test(value) ? value : null;
   }
+  // Management and login confirmation use the same site; no cross-site callback requires Lax.
+  // Keep Origin and session-bound CSRF checks: SameSite is an additional browser boundary.
   function set(reply: FastifyReply, name: string, value: string, age: number) {
     reply.header(
       'Set-Cookie',
-      `${name}=${value}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${age}${config.secure ? '; Secure' : ''}`,
+      `${name}=${value}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${age}${config.secure ? '; Secure' : ''}`,
     );
   }
   async function session(req: FastifyRequest) {

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { createAdminClient } from '@pv/api-client';
 import type { AdminPersona, CoreVersion, DraftFields, Message } from '@pv/shared';
@@ -254,13 +254,46 @@ export function AdminEdit({ id }: { id: string }) {
     [dirty, setDirty] = useState(false),
     [catName, setCatName] = useState(''),
     [catSlug, setCatSlug] = useState('');
+  // Refs close the gap before React commits busy/dirty state after an input or click.
+  const operation = useRef<symbol | null>(null);
+  const currentPersona = useRef<AdminPersona | null>(null);
+  const currentFields = useRef<DraftFields | null>(null);
+  const unsaved = useRef(false);
+  const editGeneration = useRef(0);
+  function beginOperation() {
+    if (operation.current) return null;
+    const token = Symbol('editor-operation');
+    operation.current = token;
+    setBusy(true);
+    setError('');
+    return token;
+  }
+  function finishOperation(token: symbol) {
+    if (operation.current !== token) return;
+    operation.current = null;
+    setBusy(false);
+  }
+  function applySaved(p: AdminPersona) {
+    currentPersona.current = p;
+    currentFields.current = fieldsOf(p);
+    unsaved.current = false;
+    setPersona(p);
+    setFields(currentFields.current);
+    setDirty(false);
+  }
   useEffect(() => {
     let live = true;
+    currentPersona.current = null;
+    currentFields.current = null;
+    unsaved.current = false;
+    editGeneration.current++;
+    setPersona(null);
+    setFields(null);
+    setDirty(false);
     void Promise.all([api.get(id), api.categories()])
       .then(([p, c]) => {
         if (live) {
-          setPersona(p);
-          setFields(fieldsOf(p));
+          applySaved(p);
           setCategories(c.items);
         }
       })
@@ -273,7 +306,7 @@ export function AdminEdit({ id }: { id: string }) {
   }, [id]);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
-      if (dirty) {
+      if (unsaved.current) {
         event.preventDefault();
         event.returnValue = '';
       }
@@ -282,16 +315,43 @@ export function AdminEdit({ id }: { id: string }) {
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
   const update = <K extends keyof DraftFields>(key: K, value: DraftFields[K]) => {
-    setFields((f) => (f ? { ...f, [key]: value } : f));
+    if (
+      operation.current ||
+      !currentFields.current ||
+      currentPersona.current?.status === 'archived'
+    )
+      return;
+    currentFields.current = { ...currentFields.current, [key]: value };
+    editGeneration.current++;
+    unsaved.current = true;
+    setFields(currentFields.current);
     setDirty(true);
     setNotice('');
   };
   async function action(name: 'publish' | 'unpublish' | 'archive') {
-    if (!persona || busy) return;
-    setBusy(true);
-    setError('');
+    const preview = currentPersona.current;
+    if (!preview || preview.status === 'archived') return;
+    // The action itself refuses dirty content; disabled buttons are only presentation.
+    if (unsaved.current) {
+      setError('有未保存修改，请先保存后再发布或更改公开状态。');
+      return;
+    }
+    if (
+      name === 'publish' &&
+      (!preview.draftVersionId || !preview.draftVersion || preview.isTest)
+    ) {
+      setError('请先保存可发布的草稿版本。测试人格不能发布。');
+      return;
+    }
+    const token = beginOperation();
+    if (!token) return;
     try {
-      const p = await api.action(id, name, persona.revision);
+      const p =
+        name === 'publish'
+          ? await api.action(id, name, preview.revision, preview.draftVersionId!)
+          : await api.action(id, name, preview.revision);
+      if (currentPersona.current?.id !== preview.id) return;
+      currentPersona.current = p;
       setPersona(p);
       setNotice(
         name === 'publish'
@@ -303,7 +363,7 @@ export function AdminEdit({ id }: { id: string }) {
     } catch (e) {
       setError(text(e));
     } finally {
-      setBusy(false);
+      finishOperation(token);
     }
   }
   if (!fields || !persona)
@@ -338,19 +398,26 @@ export function AdminEdit({ id }: { id: string }) {
         className="admin-form"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (busy) return;
-          setBusy(true);
-          setError('');
+          const snapshot = currentFields.current;
+          const base = currentPersona.current;
+          if (!snapshot || !base || base.status === 'archived') return;
+          const token = beginOperation();
+          if (!token) return;
+          const generation = editGeneration.current;
           try {
-            const p = await api.save(id, fields, persona.revision);
-            setPersona(p);
-            setFields(fieldsOf(p));
-            setDirty(false);
+            const p = await api.save(id, snapshot, base.revision);
+            if (currentPersona.current?.id !== base.id) return;
+            if (editGeneration.current !== generation) {
+              // Never replace authored input with a response to an older local snapshot.
+              setError('保存请求已完成，但本地输入已变化。请重新核对版本，当前输入仍保留。');
+              return;
+            }
+            applySaved(p);
             setNotice('草稿已保存，并创建不可变的新版本。');
           } catch (e) {
             setError(text(e));
           } finally {
-            setBusy(false);
+            finishOperation(token);
           }
         }}
       >
@@ -455,7 +522,7 @@ export function AdminEdit({ id }: { id: string }) {
           <button className="button primary" type="submit" disabled={frozen}>
             {busy ? '保存中…' : '保存草稿并创建版本'}
           </button>
-          <span role="status">{dirty ? '未保存' : '已同步'}</span>
+          <span role="status">{busy ? '请求处理中，请等待完成' : dirty ? '未保存' : '已同步'}</span>
         </div>
       </form>
       <details className="admin-panel">
@@ -463,18 +530,18 @@ export function AdminEdit({ id }: { id: string }) {
         <div className="admin-form">
           <label>
             分类名称
-            <input value={catName} onChange={(e) => setCatName(e.target.value)} />
+            <input value={catName} onChange={(e) => setCatName(e.target.value)} disabled={busy} />
           </label>
           <label>
             分类 slug
-            <input value={catSlug} onChange={(e) => setCatSlug(e.target.value)} />
+            <input value={catSlug} onChange={(e) => setCatSlug(e.target.value)} disabled={busy} />
           </label>
           <button
             className="button"
             disabled={busy || !catName || !catSlug}
             onClick={async () => {
-              setBusy(true);
-              setError('');
+              const token = beginOperation();
+              if (!token) return;
               try {
                 await api.category(catName, catSlug);
                 setCategories((await api.categories()).items);
@@ -484,7 +551,7 @@ export function AdminEdit({ id }: { id: string }) {
               } catch (e) {
                 setError(text(e));
               } finally {
-                setBusy(false);
+                finishOperation(token);
               }
             }}
           >
@@ -495,6 +562,13 @@ export function AdminEdit({ id }: { id: string }) {
       <div className="admin-panel">
         <h2>发布管理</h2>
         <p className="muted">保存不会自动发布。发布新版本不会改变已有会话固定绑定的内核。</p>
+        <p role="status" aria-live="polite">
+          {dirty
+            ? `有未保存修改，请先保存后再发布。已保存草稿版本：${persona.draftVersion ? `v${persona.draftVersion.versionNumber}` : '尚无'}。`
+            : persona.draftVersion
+              ? `即将发布：草稿版本 v${persona.draftVersion.versionNumber}（数据库修订 ${persona.revision}）。`
+              : '请先保存草稿，生成版本后再发布。'}
+        </p>
         <div className="admin-actions">
           <button
             className="button primary"

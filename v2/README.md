@@ -59,4 +59,6 @@ node --env-file=.env.test.local scripts/database.mjs diff
 
 公开目录和详情 SSR 查询已发布快照；草稿改动不会提前公开，API 不返回内核。收藏保存在设备，已下架人格不可再公开访问。匿名访客和管理员使用不同 Cookie、数据库实体与 API 命名空间。
 
+3.1 补丁说明：[安全补丁与测试](docs/phase-3-1-status.md)、[Cloudflare 可行性](docs/cloudflare-feasibility.md)。本轮没有进行 Cloudflare 登录、资源创建、Workers 适配或部署。
+
 详细说明：[架构](docs/architecture.md)、[认证](docs/authentication.md)、[模型](docs/data-model.md)、[API](docs/api-contract.md)、[OpenAPI](docs/openapi.json)、[本阶段验收](docs/phase-3-status.md)、[本阶段文件清单](docs/phase-3-files.md)。第二阶段记录保留于 phase-1-status.md。

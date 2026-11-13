@@ -92,6 +92,7 @@ export const DraftFields = z
 export type DraftFields = z.infer<typeof DraftFields>;
 export const SaveDraft = DraftFields.extend({ expectedRevision: z.number().int().min(0) }).strict();
 export const RevisionInput = z.object({ expectedRevision: z.number().int().min(0) }).strict();
+export const PublishInput = RevisionInput.extend({ expectedVersionId: z.string().uuid() }).strict();
 export const CoreVersion = z.object({
   id: z.string().uuid(),
   personaId: z.string().uuid(),

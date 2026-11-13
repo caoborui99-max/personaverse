@@ -8,6 +8,7 @@ import {
   PersonaList,
   SaveDraft,
   RevisionInput,
+  PublishInput,
   AdminPersona,
   CoreVersion,
   DraftFields,
@@ -238,7 +239,7 @@ const doc = {
     '/admin/personas/{id}/publish': {
       parameters: [id],
       post: {
-        requestBody: body('RevisionInput'),
+        requestBody: body('PublishInput'),
         responses: {
           '200': response('AdminPersona'),
           '400': error,
@@ -340,6 +341,7 @@ const doc = {
         PersonaList,
         SaveDraft,
         RevisionInput,
+        PublishInput,
         AdminPersona,
         CoreVersion,
         DraftFields,

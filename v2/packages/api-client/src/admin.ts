@@ -97,9 +97,13 @@ export function createAdminClient(base = '/api/v1') {
       id: string,
       action: 'publish' | 'unpublish' | 'archive',
       expectedRevision: number,
+      expectedVersionId?: string | null,
     ) {
       return AdminPersona.parse(
-        await write('/admin/personas/' + id + '/' + action, { expectedRevision }),
+        await write('/admin/personas/' + id + '/' + action, {
+          expectedRevision,
+          ...(action === 'publish' ? { expectedVersionId } : {}),
+        }),
       );
     },
     async categories() {

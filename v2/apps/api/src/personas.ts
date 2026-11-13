@@ -2,7 +2,12 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { DraftFields, SaveDraft, RevisionInput } from '../../../packages/shared/src/index.ts';
+import {
+  DraftFields,
+  SaveDraft,
+  RevisionInput,
+  PublishInput,
+} from '../../../packages/shared/src/index.ts';
 import { fail } from './errors.ts';
 import type { authService } from './auth.ts';
 const idOf = (req: FastifyRequest) => z.object({ id: z.string().uuid() }).parse(req.params).id;
@@ -206,10 +211,12 @@ export function personaRoutes(
   app.post('/api/v1/admin/personas/:id/publish', async (req) => {
     const s = await writable(req),
       id = idOf(req),
-      body = RevisionInput.parse(req.body);
+      body = PublishInput.parse(req.body);
     return db.$transaction(async (tx) => {
       const p = await claim(tx, id, body.expectedRevision);
       const v = p.draftVersion;
+      if (p.draftVersionId !== body.expectedVersionId)
+        fail(409, 'PUBLISH_VERSION_CONFLICT', '即将发布的版本已变化，请重新加载核对。');
       if (p.isTest || p.status === 'archived')
         fail(400, 'PUBLISH_FORBIDDEN', '测试或归档人格不能发布。');
       if (
@@ -226,6 +233,7 @@ export function personaRoutes(
           'PUBLISH_INCOMPLETE',
           '发布前请手动填写名称、简介、背景、分类、完整内核及开场白。',
         );
+      await tx.$executeRaw`SELECT set_config('personaverse.publication_action', 'publish', true)`;
       await tx.persona.update({
         where: { id },
         data: { status: 'published', publishedVersionId: v.id, publishedSlug: p.slug },
@@ -244,6 +252,7 @@ export function personaRoutes(
         body = RevisionInput.parse(req.body);
       return db.$transaction(async (tx) => {
         await claim(tx, id, body.expectedRevision);
+        await tx.$executeRaw`SELECT set_config('personaverse.publication_action', ${suffix}, true)`;
         await tx.persona.update({ where: { id }, data: { status } });
         await audit(tx, s.adminId, req, suffix, id, body.expectedRevision + 1);
         return get(tx, id);

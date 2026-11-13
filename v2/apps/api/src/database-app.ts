@@ -43,6 +43,14 @@ export function buildDatabaseApp(
         status = 409;
         code = 'DUPLICATE';
         message = '唯一字段已被占用。';
+      } else if (error.code === 'P2004' || error.meta?.code === '23514') {
+        status = 409;
+        code = 'DATA_INTEGRITY';
+        message = '数据完整性约束拒绝此更改。';
+      } else if (error.meta?.code === '42501') {
+        status = 409;
+        code = 'PUBLICATION_INTENT_REQUIRED';
+        message = '发布状态只能通过明确的发布管理流程修改。';
       } else if (error.code === 'P2003') {
         status = 400;
         code = 'INVALID_REFERENCE';

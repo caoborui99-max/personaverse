@@ -37,3 +37,9 @@ POST /admin/personas/:id/restore {versionId,expectedRevision}：恢复为新草�
 POST /admin/test/sessions {personaId,versionId}；GET/POST /admin/test/sessions/:id/messages。仅已验证管理员可用，支持未发布版本，固定 coreVersionId，不套用访客次数或每日额度。消息事务使用 NOWAIT 并发锁与 10 秒事务上限，HTTP/客户端超时保护，未配置任何模型调用路径，不产生真实费用。真实模型启用前还必须实现全站费用熔断和结算。
 
 PV_MODE=mock-regression 保留第二阶段的 mock 登录拒绝、固定测试资料和内存聊天，仅供回归，不应当作真实认证模式。
+
+## 3.1 发布契约补丁
+
+发布请求必须同时提供 `{expectedRevision, expectedVersionId}`，后者为页面展示并确认的草稿版本 UUID。版本不符或旧修订返回 409；缺字段或向通用保存接口提交 status/publishedVersionId/publishedSlug 返回 400。下架/归档仍只需 expectedRevision。Web 客户端已同步，旧发布请求不能静默发布其他版本。
+
+`0004_immutable_chat_publication` 为聊天归属添加不可变触发器，并对发布指针成对、状态、slug/快照一致性加保护。授权发布/下架/归档事务设置本事务发布意图，提交或回滚后失效。该意图不是数据库中的管理员身份认证；持有应用数据库写凭据者仍属于可信边界，详见 phase-3-1-status.md。
