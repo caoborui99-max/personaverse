@@ -1,0 +1,10 @@
+node_modules
+.pnpm-store
+.next
+dist
+pnpm-lock.yaml
+test-results
+playwright-report
+database/migrations
+
+apps/web/next-env.d.ts

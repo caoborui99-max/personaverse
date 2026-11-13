@@ -1,0 +1,24 @@
+{
+  "name": "@pv/web",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1 --port 4310",
+    "build": "next build --webpack",
+    "start": "next start --hostname 127.0.0.1 --port 4310",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pv/shared": "workspace:*",
+    "@pv/api-client": "workspace:*",
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.5",
+    "tailwindcss": "4.3.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.2.3"
+  }
+}

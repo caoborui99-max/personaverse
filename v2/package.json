@@ -1,0 +1,31 @@
+{
+  "name": "personaverse-v2",
+  "private": true,
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @pv/web --filter @pv/api dev",
+    "build": "pnpm --filter @pv/api build && pnpm --filter @pv/web build",
+    "typecheck": "tsc --noEmit -p tsconfig.json && pnpm --filter @pv/web typecheck",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "db:validate": "prisma validate --schema database/schema.prisma",
+    "db:generate": "prisma generate --schema database/schema.prisma",
+    "contracts:generate": "node --import tsx scripts/generate-openapi.ts",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "tsx": "4.23.15",
+    "vitest": "5.1.0",
+    "@playwright/test": "1.65.0",
+    "@types/node": "24.19.2",
+    "prisma": "6.19.3",
+    "@pv/shared": "workspace:*",
+    "@prisma/client": "6.19.3",
+    "prettier": "3.6.2"
+  },
+  "type": "module"
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@pv/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/apps/api/src/server.js",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@pv/shared": "workspace:*",
+    "fastify": "5.12.8",
+    "zod": "4.6.7"
+  }
+}

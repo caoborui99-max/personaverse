@@ -1,0 +1,193 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AdminAccount {
+  id           String               @id @default(uuid()) @db.Uuid
+  email        String               @unique @db.VarChar(254)
+  passwordHash String
+  status       String               @default("active")
+  createdAt    DateTime             @default(now()) @db.Timestamptz
+  sessions     AdminSession[]
+  versions     PersonaCoreVersion[]
+  chats        ChatSession[]
+  audit        AdminAuditLog[]
+}
+
+model AdminSession {
+  id         String       @id @default(uuid()) @db.Uuid
+  adminId    String       @db.Uuid
+  tokenHash  String       @unique @db.Char(64)
+  createdAt  DateTime     @default(now()) @db.Timestamptz
+  expiresAt  DateTime     @db.Timestamptz
+  lastSeenAt DateTime     @default(now()) @db.Timestamptz
+  revokedAt  DateTime?    @db.Timestamptz
+  admin      AdminAccount @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([adminId, expiresAt])
+  @@index([expiresAt])
+}
+
+model Persona {
+  id                 String               @id @default(uuid()) @db.Uuid
+  slug               String               @unique @db.VarChar(80)
+  name               String               @db.VarChar(80)
+  summary            String               @default("")
+  background         String               @default("")
+  avatarUrl          String?
+  status             String               @default("draft")
+  draftVersionId     String?              @db.Uuid
+  publishedVersionId String?              @db.Uuid
+  createdAt          DateTime             @default(now()) @db.Timestamptz
+  updatedAt          DateTime             @updatedAt @db.Timestamptz
+  versions           PersonaCoreVersion[]
+  categories         PersonaCategory[]
+  chats              ChatSession[]
+
+  @@index([status, updatedAt, id])
+}
+
+model PersonaCoreVersion {
+  id              String        @id @default(uuid()) @db.Uuid
+  personaId       String        @db.Uuid
+  versionNumber   Int
+  coreText        String
+  openingMessage  String
+  profileSnapshot Json
+  createdBy       String        @db.Uuid
+  restoredFromId  String?       @db.Uuid
+  createdAt       DateTime      @default(now()) @db.Timestamptz
+  persona         Persona       @relation(fields: [personaId], references: [id], onDelete: Restrict)
+  author          AdminAccount  @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  chats           ChatSession[]
+
+  @@unique([personaId, versionNumber])
+  @@unique([personaId, id])
+}
+
+model Category {
+  id        String            @id @default(uuid()) @db.Uuid
+  slug      String            @unique @db.VarChar(80)
+  name      String            @unique @db.VarChar(80)
+  sortOrder Int               @default(0)
+  personas  PersonaCategory[]
+}
+
+model PersonaCategory {
+  personaId  String   @db.Uuid
+  categoryId String   @db.Uuid
+  persona    Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([personaId, categoryId])
+  @@index([categoryId, personaId])
+}
+
+model VisitorSession {
+  id        String        @id @default(uuid()) @db.Uuid
+  tokenHash String        @unique @db.Char(64)
+  createdAt DateTime      @default(now()) @db.Timestamptz
+  expiresAt DateTime      @db.Timestamptz
+  revokedAt DateTime?     @db.Timestamptz
+  chats     ChatSession[]
+
+  @@index([expiresAt])
+}
+
+model ChatSession {
+  id            String             @id @default(uuid()) @db.Uuid
+  personaId     String             @db.Uuid
+  coreVersionId String             @db.Uuid
+  adminId       String?            @db.Uuid
+  visitorId     String?            @db.Uuid
+  status        String             @default("active")
+  createdAt     DateTime           @default(now()) @db.Timestamptz
+  updatedAt     DateTime           @updatedAt @db.Timestamptz
+  persona       Persona            @relation(fields: [personaId], references: [id], onDelete: Restrict)
+  coreVersion   PersonaCoreVersion @relation(fields: [personaId, coreVersionId], references: [personaId, id], onDelete: Restrict)
+  admin         AdminAccount?      @relation(fields: [adminId], references: [id], onDelete: Restrict)
+  visitor       VisitorSession?    @relation(fields: [visitorId], references: [id], onDelete: Restrict)
+  messages      ChatMessage[]
+  usage         AiUsageRecord[]
+  requests      ChatRequest[]
+
+  @@index([adminId, updatedAt])
+  @@index([visitorId, updatedAt])
+}
+
+model ChatMessage {
+  id              String      @id @default(uuid()) @db.Uuid
+  sessionId       String      @db.Uuid
+  sequence        Int
+  role            String
+  content         String
+  clientMessageId String      @db.Uuid
+  status          String      @default("complete")
+  createdAt       DateTime    @default(now()) @db.Timestamptz
+  session         ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, sequence])
+  @@unique([sessionId, clientMessageId, role])
+}
+
+model ChatRequest {
+  id              String      @id @default(uuid()) @db.Uuid
+  sessionId       String      @db.Uuid
+  clientMessageId String      @db.Uuid
+  fingerprint     String      @db.Char(64)
+  status          String
+  leaseExpiresAt  DateTime?   @db.Timestamptz
+  response        Json?
+  createdAt       DateTime    @default(now()) @db.Timestamptz
+  session         ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, clientMessageId])
+}
+
+model AiUsageRecord {
+  id           String      @id @default(uuid()) @db.Uuid
+  requestId    String      @unique @db.Uuid
+  sessionId    String      @db.Uuid
+  provider     String
+  model        String
+  inputTokens  Int         @default(0)
+  outputTokens Int         @default(0)
+  reservedCost Decimal     @db.Decimal(18, 8)
+  actualCost   Decimal?    @db.Decimal(18, 8)
+  currency     String      @default("CNY") @db.Char(3)
+  status       String
+  createdAt    DateTime    @default(now()) @db.Timestamptz
+  session      ChatSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt, status])
+}
+
+model QuotaBucket {
+  scope        String
+  subject      String
+  bucketStart  DateTime @db.Timestamptz
+  calls        Int      @default(0)
+  reservedCost Decimal  @default(0) @db.Decimal(18, 8)
+
+  @@id([scope, subject, bucketStart])
+}
+
+model AdminAuditLog {
+  id            String       @id @default(uuid()) @db.Uuid
+  adminId       String       @db.Uuid
+  action        String
+  objectType    String
+  objectId      String?
+  requestId     String
+  changeSummary Json
+  createdAt     DateTime     @default(now()) @db.Timestamptz
+  admin         AdminAccount @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([adminId, createdAt])
+  @@index([objectType, objectId, createdAt])
+}
