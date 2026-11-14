@@ -14,7 +14,6 @@ export function chatRoutes(
   config: DatabaseConfig,
 ) {
   const visitorCookie = config.secure ? '__Host-pv_v2_visitor' : 'pv_v2_visitor_local';
-  const once = new Set<string>();
   async function visitor(req: FastifyRequest) {
     const raw = req.headers.cookie
       ?.split(';')
@@ -150,11 +149,12 @@ export function chatRoutes(
     app.post(prefix + '/:id/messages', async (req) => {
       const session = await owned(req, admin),
         body = SendMessage.parse(req.body);
-      const failureKey = session.id + body.clientMessageId;
-      if (body.content === '/fail-once' && !once.has(failureKey)) {
-        if (once.size > 10000) once.clear();
-        once.add(failureKey);
-        fail(503, 'MOCK_TEMPORARY_FAILURE', '模拟请求失败，可重试。', true);
+      if (body.content === '/fail-once') {
+        const key = 'mock-fail-once:' + session.id + ':' + body.clientMessageId;
+        const created = await db.$queryRaw<
+          { count: number }[]
+        >`INSERT INTO "AiRateBucket"(key,count,"expiresAt") VALUES (${key},1,${new Date(Date.now() + 86400000)}) ON CONFLICT(key) DO NOTHING RETURNING count`;
+        if (created.length) fail(503, 'MOCK_TEMPORARY_FAILURE', '模拟请求失败，可重试。', true);
       }
       await db.$transaction(
         async (tx) => {

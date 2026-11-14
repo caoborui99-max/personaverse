@@ -15,7 +15,7 @@ await check('Prisma interactive transaction on isolated PostgreSQL', async () =>
   return probe.database?.connected === true || probe.database;
 });
 await check('Argon2id in workerd', async () => probe?.argon?.verified === true || probe?.argon);
-await check('Fastify health through Service Binding', async () => {
+await check('Fetch API health through Service Binding', async () => {
   const r = await fetch(base + '/api/v1/health');
   return r.status === 200 || { status: r.status };
 });

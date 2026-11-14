@@ -582,3 +582,88 @@ it('opens the global circuit after three explicit no-charge provider failures', 
       .reservedUnits,
   ).toBe(0n);
 });
+it.each(['closed', 'unpublished', 'disabled'] as const)(
+  'cancels %s in the authorization-to-send gap before fake admission',
+  async (kind) => {
+    class Paused extends BudgetEngine {
+      override async dispatch(a: typeof actor, id: string) {
+        const granted = await super.dispatch(a, id);
+        if (kind === 'closed')
+          await h.db.chatSession.update({ where: { id: sessionId }, data: { status: 'closed' } });
+        if (kind === 'unpublished')
+          await h.db.$transaction(async (tx) => {
+            await tx.$executeRaw`SELECT set_config('personaverse.publication_action','unpublish',true)`;
+            await tx.persona.update({
+              where: {
+                id: (await tx.chatSession.findUniqueOrThrow({ where: { id: sessionId } }))
+                  .personaId,
+              },
+              data: { status: 'draft' },
+            });
+          });
+        if (kind === 'disabled')
+          await h.db.aiControl.update({ where: { id: 'global' }, data: { fakeEnabled: false } });
+        return granted;
+      }
+    }
+    const provider = new FakeProvider();
+    const r = await new Paused(h.db, { allowFake: true, clock: () => now }).runFake(
+      actor,
+      sessionId,
+      key(),
+      'hello',
+      20,
+      provider,
+    );
+    expect(r.status).toBe('failed');
+    expect(provider.calls).toBe(0);
+    expect(
+      (await h.db.aiReservation.findUniqueOrThrow({ where: { requestId: r.id } })).status,
+    ).toBe('released');
+  },
+);
+it('linearizes synchronous fake admission before close without waiting for completion in a DB transaction', async () => {
+  let accepted!: () => void, release!: () => void;
+  const observed = new Promise<void>((r) => {
+      accepted = r;
+    }),
+    resume = new Promise<void>((r) => {
+      release = r;
+    });
+  class PausedResponse extends FakeProvider {
+    override async complete(input: { estimatedInputTokens: number; maxOutputTokens: number }) {
+      const result = await super.complete(input);
+      accepted();
+      await resume;
+      return result;
+    }
+  }
+  const provider = new PausedResponse();
+  const request = engine.runFake(actor, sessionId, key(), 'hello', 20, provider);
+  await observed;
+  // Close must finish while provider completion is still paused: no transaction waits for its response.
+  await h.db.chatSession.update({ where: { id: sessionId }, data: { status: 'closed' } });
+  expect(provider.calls).toBe(1);
+  release();
+  expect((await request).status).toBe('succeeded');
+});
+it('retains unknown exposure if COMMIT fails after fake admission', async () => {
+  await h.db.$executeRawUnsafe(
+    `CREATE FUNCTION kill_fake_send_commit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.code='FAKE_SEND_STARTED' THEN PERFORM pg_terminate_backend(pg_backend_pid()); END IF; RETURN NEW; END; $$`,
+  );
+  await h.db.$executeRawUnsafe(
+    `CREATE CONSTRAINT TRIGGER kill_fake_send_commit AFTER INSERT ON "AiSafetyEvent" DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION kill_fake_send_commit()`,
+  );
+  const provider = new FakeProvider();
+  try {
+    const r = await engine.runFake(actor, sessionId, key(), 'hello', 20, provider);
+    expect(provider.calls).toBe(1);
+    expect(r.status).toBe('unknown');
+    expect(
+      (await h.db.aiReservation.findUniqueOrThrow({ where: { requestId: r.id } })).status,
+    ).toBe('held');
+  } finally {
+    await h.db.$executeRawUnsafe('DROP TRIGGER kill_fake_send_commit ON "AiSafetyEvent"');
+    await h.db.$executeRawUnsafe('DROP FUNCTION kill_fake_send_commit()');
+  }
+});

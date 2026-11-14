@@ -1,3 +1,18 @@
+# Cloudflare 本地验证更新：Phase 4A.1
+
+2026-11-14 更新，基线 `a448da9bd8f32367c7d82d89175936f4fec498d9`。**原有两项本地运行时阻断已修复，本轮指定的本地业务路径通过。** 17 项 Workers API、5 项原有后台浏览器测试和 10 项探针通过。完整方法、统计、源码变换校验及剩余上线限制见 [A.1 交付报告](phase-4a-1-status.md)。
+
+- Workers 不构造 Fastify/find-my-way，改用复用同一路由/鉴权注册的窄 fetch 入口；Node 保留 Fastify。
+- hash-wasm 4.13.0 的装载器构建期转换为静态 `.wasm` 导入，保持 Argon2id 参数、PHC 与算法。LF 规范化源码 SHA-256：`0682e7339e5fc2107cceae8d460f02533cfcb0cc3fe65f5f622fb56158b75f7e`。
+- Argon2 wasm：7148 bytes，SHA-256 `7a25eff94eb7bc559acb7305d8352ed24470670a9ae653d79d86f92f8a395c3d`；BLAKE2b wasm：7449 bytes，SHA-256 `2aa7f33c4ece502997304672bc8defa348a7a30ef9a191e8648d317830e50afd`。生成器拒绝未审查的版本/源码或残留动态编译。
+- PG 启动 search_path、无 Rust 驱动错误映射、ctx.waitUntil 清理和查询超时均经实际业务/故障验证。没有删除 SQL 保护或改写历史迁移。
+- 本轮本地开发 bundle 快照：API JS 1,510,663 bytes，Web JS 5,603,068 bytes；API JS 中未出现 find-my-way 或动态 WebAssembly.compile。另有静态 WASM 模块，不能把 JS 尺寸当作最终完整上传体积或线上 CPU 验收。
+- 未部署、未建云资源；真实 Hyperdrive、线上 CPU/内存、Secure Cookie 和边缘 IP 仍待授权验证。不能把本地结果当作线上验收。
+
+以下保留 Phase 4A 的历史证据，其“阻断/8 失败”是当时结果，不是当前 A.1 结果。
+
+---
+
 # Cloudflare 本地兼容性验证：Phase 4A
 
 日期 2026-11-13；基线 `1833fc8f4c3358ee65812302611f8091c793f5af`。结论：**阻断**。目标构建成功不等于完整运行通过。本轮没有登录 Cloudflare、创建远程资源或部署。

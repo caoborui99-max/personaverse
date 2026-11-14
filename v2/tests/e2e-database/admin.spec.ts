@@ -118,7 +118,7 @@ test('stale editor cannot silently overwrite and draft test never publishes auto
 async function preparedEditor(page: import('@playwright/test').Page) {
   await login(page);
   const session = await (await page.request.get('/api/v1/admin/auth/session')).json();
-  const headers = { origin: 'http://127.0.0.1:4310', 'x-csrf-token': session.csrfToken };
+  const headers = { origin: new URL(page.url()).origin, 'x-csrf-token': session.csrfToken };
   const categoryResponse = await page.request.post('/api/v1/admin/categories', {
     headers,
     data: { name: 'TEST ONLY 分类 ' + randomUUID(), slug: 'test-' + randomUUID() },
@@ -244,7 +244,7 @@ test('Strict cookie rejects the first cross-site top-level GET without revoking 
   );
   expect(adminCookie?.sameSite).toBe('Strict');
   expect(adminCookie?.httpOnly).toBe(true);
-  const origin = 'http://127.0.0.1:4310';
+  const origin = new URL(page.url()).origin;
   const sessionUrl = origin + '/api/v1/admin/auth/session';
   // This synthetic origin is fulfilled locally. No attacker host or external service is contacted.
   await page.route('http://attacker.invalid/**', (route) =>

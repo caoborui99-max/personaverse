@@ -17,7 +17,7 @@ export async function hash(password: string, options = PARAMETERS) {
     password.length > 256
   )
     throw new Error('ARGON_PARAMETERS');
-  if (active >= 2) throw new Error('ARGON_BUSY');
+  if (active >= 2) throw Object.assign(new Error('ARGON_BUSY'), { statusCode: 429 });
   active++;
   try {
     return await argon2id({
@@ -35,7 +35,7 @@ export async function hash(password: string, options = PARAMETERS) {
 }
 export async function verify(encoded: string, password: string) {
   if (!validPhc(encoded) || password.length > 256) return false;
-  if (active >= 2) throw new Error('ARGON_BUSY');
+  if (active >= 2) throw Object.assign(new Error('ARGON_BUSY'), { statusCode: 429 });
   active++;
   try {
     return await argon2Verify({ password, hash: encoded });

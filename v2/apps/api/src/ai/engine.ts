@@ -291,6 +291,62 @@ export class BudgetEngine {
         data: { circuitOpen: true, reason: 'SETTLEMENT_EXCEEDED_RESERVATION' },
       });
   }
+  private async checkDispatch(
+    tx: Tx,
+    r: Prisma.ChatRequestGetPayload<{ include: typeof include }>,
+    s: { personaId: string; status: string; adminId: string | null },
+    control: Prisma.AiControlGetPayload<{}>,
+    alreadyRunning = false,
+  ) {
+    this.enabled(control);
+    await this.available(tx, s);
+    if (!r.leaseExpiresAt || r.leaseExpiresAt <= this.now()) reject('RESERVATION_EXPIRED');
+    if (control.priceVersion !== r.reservation?.priceVersion) reject('PRICE_CHANGED');
+    if (
+      !r.reservation ||
+      r.reservation.amountUnits > control.maxRequestUnits ||
+      r.maxOutputTokens > control.maxOutputTokens ||
+      r.estimatedInputTokens > control.maxInputTokens
+    )
+      reject('LIMIT_CHANGED');
+    for (const hold of r.reservation!.holds) {
+      await tx.$queryRaw`SELECT id FROM "AiBudget" WHERE id=${hold.budgetId}::uuid FOR SHARE`;
+      const budget = await tx.aiBudget.findUniqueOrThrow({ where: { id: hold.budgetId } });
+      if (budget.limitUnits <= 0n || budget.spentUnits + budget.reservedUnits > budget.limitUnits)
+        reject('BUDGET_CHANGED');
+    }
+    if (
+      (await tx.chatRequest.count({ where: { status: { in: ['running', 'unknown'] } } })) >
+      control.maxRunning - (alreadyRunning ? 0 : 1)
+    )
+      reject('GLOBAL_BUSY');
+  }
+  private async beginFake(actor: Actor, id: string, fence: bigint, provider: FakeProvider) {
+    return this.db.$transaction(async (tx) => {
+      const control = await this.lock(tx);
+      const r = await tx.chatRequest.findUniqueOrThrow({ where: { id }, include });
+      const s = await this.session(tx, r.sessionId, actor);
+      if (r.status !== 'running' || r.fencingToken !== fence) reject('FENCE_CONFLICT');
+      try {
+        await this.checkDispatch(tx, r, s, control, true);
+      } catch (e) {
+        if (!(e instanceof AiError)) throw e;
+        await this.terminal(tx, id, 'release', 0n, digest(id + ':release'));
+        const request = await tx.chatRequest.update({
+          where: { id },
+          data: { status: 'failed', errorCode: e.code, updatedAt: this.now() },
+        });
+        await this.event(tx, id, 'CANCELLED_BEFORE_FAKE_SEND');
+        return { request };
+      }
+      await this.event(tx, id, 'FAKE_SEND_STARTED');
+      // Fake-only synchronous admission under the status locks. Do NOT await completion here.
+      // Reservation/running were durably committed earlier: even a failed COMMIT cannot erase exposure.
+      const execution = provider.complete(r);
+      void execution.catch(() => {});
+      return { request: r, execution };
+    });
+  }
   async dispatch(actor: Actor, id: string) {
     return this.db.$transaction(async (tx) => {
       const control = await this.lock(tx);
@@ -298,31 +354,7 @@ export class BudgetEngine {
       const s = await this.session(tx, r.sessionId, actor);
       if (r.status !== 'reserved') return { ...r, granted: false };
       try {
-        this.enabled(control);
-        await this.available(tx, s);
-        if (!r.leaseExpiresAt || r.leaseExpiresAt <= this.now()) reject('RESERVATION_EXPIRED');
-        if (control.priceVersion !== r.reservation?.priceVersion) reject('PRICE_CHANGED');
-        if (
-          !r.reservation ||
-          r.reservation.amountUnits > control.maxRequestUnits ||
-          r.maxOutputTokens > control.maxOutputTokens ||
-          r.estimatedInputTokens > control.maxInputTokens
-        )
-          reject('LIMIT_CHANGED');
-        for (const hold of r.reservation!.holds) {
-          await tx.$queryRaw`SELECT id FROM "AiBudget" WHERE id=${hold.budgetId}::uuid FOR SHARE`;
-          const budget = await tx.aiBudget.findUniqueOrThrow({ where: { id: hold.budgetId } });
-          if (
-            budget.limitUnits <= 0n ||
-            budget.spentUnits + budget.reservedUnits > budget.limitUnits
-          )
-            reject('BUDGET_CHANGED');
-        }
-        if (
-          (await tx.chatRequest.count({ where: { status: { in: ['running', 'unknown'] } } })) >=
-          control.maxRunning
-        )
-          reject('GLOBAL_BUSY');
+        await this.checkDispatch(tx, r, s, control);
       } catch (e) {
         await this.terminal(tx, id, 'release', 0n, digest(id + ':release'));
         return {
@@ -451,8 +483,10 @@ export class BudgetEngine {
     if (started.status !== 'running' || !started.granted) return started;
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
+      const begun = await this.beginFake(actor, started.id, started.fencingToken, provider);
+      if (!begun.execution) return begun.request;
       const value = await Promise.race([
-        provider.complete(started),
+        begun.execution,
         new Promise<never>((_, reject) => {
           timer = setTimeout(
             () => reject(new UnknownOutcome('TIMEOUT')),

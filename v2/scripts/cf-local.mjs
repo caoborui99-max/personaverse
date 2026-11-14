@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 const command = process.argv[2];
 const env = {
@@ -21,6 +21,10 @@ if (command === 'build') {
     '--skipWranglerConfigCheck',
   ];
 } else if (command === 'dev') {
+  const generated = spawnSync(process.execPath, ['scripts/generate-static-argon.mjs'], {
+    stdio: 'inherit',
+  });
+  if (generated.status !== 0) throw new Error('Static WASM preparation failed');
   process.loadEnvFile('.env.test.local');
   const url = process.env.DATABASE_URL;
   const parsed = new URL(url);

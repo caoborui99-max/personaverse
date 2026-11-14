@@ -1,10 +1,14 @@
 import { hash, verify } from './argon-wasm.ts';
-import { httpServerHandler } from 'cloudflare:node';
+import { createFetchApp } from '../apps/api/src/fetch-app.ts';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { buildDatabaseApp } from '../apps/api/src/database-app.ts';
+import { registerDatabaseApp } from '../apps/api/src/database-routes.ts';
 export default {
-  async fetch(request: Request, env: { TEST_DATABASE_URL: string; WEB_ORIGIN: string }) {
+  async fetch(
+    request: Request,
+    env: { TEST_DATABASE_URL: string; WEB_ORIGIN: string },
+    ctx: { waitUntil: (promise: Promise<unknown>) => void },
+  ) {
     const url = new URL(env.TEST_DATABASE_URL);
     if (
       !['127.0.0.1', 'localhost'].includes(url.hostname) ||
@@ -13,12 +17,17 @@ export default {
       return Response.json({ error: { code: 'LOCAL_TEST_ONLY' } }, { status: 503 });
     const schema = url.searchParams.get('schema') ?? 'public';
     url.searchParams.delete('schema');
+    if (!/^(?:public|pv_[a-z0-9_]+)$/.test(schema))
+      return Response.json({ error: { code: 'INVALID_LOCAL_SCHEMA' } }, { status: 503 });
     const adapter = new PrismaPg(
       {
         connectionString: url.toString(),
         max: 2,
+        options: '-c search_path=' + schema,
         connectionTimeoutMillis: 2000,
         statement_timeout: 10000,
+        query_timeout: 3000,
+        idleTimeoutMillis: 1000,
       },
       { schema },
     );
@@ -48,39 +57,23 @@ export default {
       }
       return Response.json(results);
     }
-    let app;
-    try {
-      app = buildDatabaseApp({
-        db,
-        config: {
-          environment: 'test',
-          databaseUrl: env.TEST_DATABASE_URL,
-          origin: env.WEB_ORIGIN,
-          secure: false,
-        },
-      });
-    } catch {
-      await db.$disconnect();
-      return Response.json(
-        {
-          error: {
-            code: 'WORKERS_COMPATIBILITY_BLOCKED',
-            message: 'Fastify dynamic code generation is unsupported in workerd.',
-            requestId: 'local-worker-compatibility',
-            retryable: false,
-          },
-        },
-        { status: 503 },
-      );
-    }
+    const app = createFetchApp();
+    registerDatabaseApp(app.registration(), {
+      db,
+      config: {
+        environment: 'test',
+        databaseUrl: env.TEST_DATABASE_URL,
+        origin: env.WEB_ORIGIN,
+        secure: false,
+      },
+    });
     try {
       await app.ready();
-      const handler = httpServerHandler(app.server);
-      const response = await handler.fetch(request);
+      const response = await app.fetch(request);
       const bytes = await response.arrayBuffer();
       return new Response(bytes, { status: response.status, headers: response.headers });
     } finally {
-      await app.close();
+      ctx.waitUntil(app.close());
     }
   },
 };
