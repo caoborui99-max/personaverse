@@ -56,8 +56,8 @@ test('real login, owner content lifecycle, exact versions, publication, recovery
   await guest.getByRole('textbox', { name: '搜索人格' }).fill('手工验收');
   await expect(guest.getByRole('heading', { name: '手工验收人格', exact: true })).toBeVisible();
   await guest.getByRole('button', { name: '收藏' + slug, exact: true }).click();
-  await guest.goto('/favorites');
-  await expect(guest.getByRole('heading', { name: '手工验收人格', exact: true })).toBeVisible();
+  await expect(guest).toHaveURL(/\/login\?next=/);
+  expect((await guest.request.get('/api/v1/me/favorites')).status()).toBe(401);
   await page.getByLabel('完整人格内核 · 原文保存').fill('第二版本的手写测试原文');
   await page.getByRole('button', { name: '保存草稿并创建版本' }).click();
   await expect(page.getByText('草稿已保存，并创建不可变的新版本。')).toBeVisible();

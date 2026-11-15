@@ -1,3 +1,4 @@
+import { eraseChat } from '../../apps/api/src/user-chats.ts';
 import { beforeAll, beforeEach, afterEach, afterAll, it, expect } from 'vitest';
 import { PrismaClient } from '@prisma/client';
 import { randomUUID, createHash } from 'node:crypto';
@@ -666,4 +667,30 @@ it('retains unknown exposure if COMMIT fails after fake admission', async () => 
     await h.db.$executeRawUnsafe('DROP TRIGGER kill_fake_send_commit ON "AiSafetyEvent"');
     await h.db.$executeRawUnsafe('DROP FUNCTION kill_fake_send_commit()');
   }
+});
+it('settles an already-authorized simulated request after privacy deletion without resurrecting text', async () => {
+  const reserved = await reserve('TEST PRIVATE REQUEST');
+  const started = await engine.dispatch(actor, reserved.id);
+  expect(started.granted).toBe(true);
+  await h.db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "AiControl" WHERE id='global' FOR UPDATE`;
+    await eraseChat(tx, sessionId);
+  });
+  const result = await engine.finish(reserved.id, started.fencingToken, {
+    content: 'TEST PRIVATE LATE RESPONSE',
+    inputTokens: reserved.estimatedInputTokens,
+    outputTokens: 3,
+  });
+  expect(result.status).toBe('succeeded');
+  expect(result.inputText).toBe('');
+  expect(result.response).toBeNull();
+  expect(await h.db.chatMessage.count({ where: { sessionId } })).toBe(0);
+  expect(
+    await h.db.aiLedgerEntry.count({ where: { requestId: reserved.id, kind: 'settle' } }),
+  ).toBe(1);
+  const usage = await h.db.aiUsageRecord.findUniqueOrThrow({ where: { requestId: reserved.id } });
+  expect(usage.actualCost!.gt(0)).toBe(true);
+  await expect(
+    h.db.aiUsageRecord.update({ where: { id: usage.id }, data: { actualCost: 0 } }),
+  ).rejects.toBeDefined();
 });

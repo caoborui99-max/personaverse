@@ -16,3 +16,5 @@ cloudflare/.wrangler
 .open-next
 
 cloudflare/**/.wrangler
+
+.local-mail

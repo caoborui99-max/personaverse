@@ -1,3 +1,4 @@
+import { localFileMail } from './node-local-mail.ts';
 import { buildApp } from './app.ts';
 import { buildDatabaseApp } from './database-app.ts';
 const port = Number(process.env.API_PORT ?? 4311);
@@ -9,7 +10,13 @@ if (process.env.APP_ENV === 'production' && process.env.PV_MODE === 'mock-regres
 const app =
   process.env.PV_MODE === 'mock-regression'
     ? buildApp({ origin: process.env.WEB_ORIGIN ?? 'http://127.0.0.1:4310' })
-    : buildDatabaseApp();
+    : buildDatabaseApp({
+        mailSender:
+          process.env.PV_LOCAL_MAIL === '1' &&
+          ['test', 'development'].includes(process.env.APP_ENV ?? '')
+            ? localFileMail(process.env.APP_ENV!)
+            : undefined,
+      });
 await app.listen({ host, port });
 console.log(`PersonaVerse API listening on http://${host}:${port}`);
 for (const signal of ['SIGINT', 'SIGTERM'] as const)

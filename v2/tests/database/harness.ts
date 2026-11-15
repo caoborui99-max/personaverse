@@ -3,7 +3,12 @@ import { randomUUID, randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { buildDatabaseApp } from '../../apps/api/src/database-app.ts';
 import { passwordHash } from '../../apps/api/src/auth.ts';
-export async function harness() {
+export async function harness(
+  options: {
+    mailSender?: import('../../apps/api/src/user-mail.ts').MailSender;
+    legacyAnonymousTestMode?: boolean;
+  } = {},
+) {
   const url = new URL(process.env.DATABASE_URL ?? 'postgresql://invalid');
   if (
     process.env.APP_ENV !== 'test' ||
@@ -25,6 +30,8 @@ export async function harness() {
   const origin = 'http://127.0.0.1:4310';
   const app = buildDatabaseApp({
     db,
+    mailSender: options.mailSender,
+    legacyAnonymousTestMode: options.legacyAnonymousTestMode ?? true,
     clock: () => now,
     config: { environment: 'test', databaseUrl: url.toString(), origin, secure: false },
   });

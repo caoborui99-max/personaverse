@@ -57,6 +57,7 @@ model Persona {
   publishedVersion   PersonaCoreVersion?  @relation("PublishedVersion", fields: [id, publishedVersionId], references: [personaId, id], onDelete: Restrict, onUpdate: NoAction, map: "persona_published_version_owner")
   categories         PersonaCategory[]
   chats              ChatSession[]
+  favorites          UserFavorite[]
 
   @@index([status, updatedAt, id])
 }
@@ -118,6 +119,9 @@ model ChatSession {
   coreVersionId String             @db.Uuid
   adminId       String?            @db.Uuid
   visitorId     String?            @db.Uuid
+  userId        String?            @db.Uuid
+  creationKey   String?            @db.Uuid
+  deletedAt     DateTime?          @db.Timestamptz
   status        String             @default("active")
   createdAt     DateTime           @default(now()) @db.Timestamptz
   updatedAt     DateTime           @updatedAt @db.Timestamptz
@@ -125,11 +129,14 @@ model ChatSession {
   coreVersion   PersonaCoreVersion @relation(fields: [personaId, coreVersionId], references: [personaId, id], onDelete: Restrict)
   admin         AdminAccount?      @relation(fields: [adminId], references: [id], onDelete: Restrict)
   visitor       VisitorSession?    @relation(fields: [visitorId], references: [id], onDelete: Restrict)
+  user          User?              @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   messages      ChatMessage[]
   usage         AiUsageRecord[]
   requests      ChatRequest[]
 
   @@unique([id, coreVersionId])
+  @@unique([userId, creationKey])
+  @@index([userId, deletedAt, updatedAt, id])
   @@index([adminId, updatedAt])
   @@index([visitorId, updatedAt])
 }
@@ -310,4 +317,79 @@ model AiSafetyEvent {
   requestId String?
   code      String
   createdAt DateTime @default(now()) @db.Timestamptz
+}
+
+model User {
+  id              String              @id @default(uuid()) @db.Uuid
+  email           String              @unique @db.VarChar(254)
+  passwordHash    String
+  displayName     String              @default("") @db.VarChar(80)
+  status          String              @default("active")
+  emailVerifiedAt DateTime?           @db.Timestamptz
+  authVersion     Int                 @default(1)
+  createdAt       DateTime            @default(now()) @db.Timestamptz
+  updatedAt       DateTime            @updatedAt @db.Timestamptz
+  sessions        UserSession[]
+  verifications   EmailVerification[]
+  passwordResets  PasswordReset[]
+  chats           ChatSession[]
+  favorites       UserFavorite[]
+}
+
+model UserSession {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  tokenHash   String    @unique @db.Char(64)
+  authVersion Int       @default(1)
+  createdAt   DateTime  @default(now()) @db.Timestamptz
+  expiresAt   DateTime  @db.Timestamptz
+  lastSeenAt  DateTime  @default(now()) @db.Timestamptz
+  revokedAt   DateTime? @db.Timestamptz
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+}
+
+model EmailVerification {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  tokenHash   String    @unique @db.Char(64)
+  authVersion Int       @default(1)
+  createdAt   DateTime  @default(now()) @db.Timestamptz
+  expiresAt   DateTime  @db.Timestamptz
+  deliveredAt DateTime? @db.Timestamptz
+  usedAt      DateTime? @db.Timestamptz
+  revokedAt   DateTime? @db.Timestamptz
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+}
+
+model PasswordReset {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  tokenHash   String    @unique @db.Char(64)
+  authVersion Int       @default(1)
+  createdAt   DateTime  @default(now()) @db.Timestamptz
+  expiresAt   DateTime  @db.Timestamptz
+  deliveredAt DateTime? @db.Timestamptz
+  usedAt      DateTime? @db.Timestamptz
+  revokedAt   DateTime? @db.Timestamptz
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+}
+
+model UserFavorite {
+  userId    String   @db.Uuid
+  personaId String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  persona   Persona  @relation(fields: [personaId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@id([userId, personaId])
+  @@index([userId, createdAt, personaId])
 }

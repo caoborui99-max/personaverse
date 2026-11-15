@@ -1,3 +1,6 @@
+import { userAuthService } from './user-auth.ts';
+import { userChatRoutes } from './user-chats.ts';
+import type { MailSender } from './user-mail.ts';
 import { driverFailure } from './driver-errors.ts';
 import { budgetRoutes } from './ai/routes.ts';
 import type { FastifyInstance } from 'fastify';
@@ -15,6 +18,8 @@ export function registerDatabaseApp(
     db?: PrismaClient;
     clock?: () => number;
     fakeBudgetTestMode?: boolean;
+    legacyAnonymousTestMode?: boolean;
+    mailSender?: MailSender;
   } = {},
 ) {
   const config = options.config ?? databaseConfig();
@@ -25,6 +30,7 @@ export function registerDatabaseApp(
       transactionOptions: { timeout: 10000 },
     });
   const auth = authService(db, config, options.clock ?? Date.now);
+  const users = userAuthService(db, config, options.clock ?? Date.now, options.mailSender);
   app.addHook('onClose', async () => {
     await db.$disconnect();
   });
@@ -130,7 +136,15 @@ export function registerDatabaseApp(
   });
   auth.routes(app);
   personaRoutes(app, db, auth);
-  chatRoutes(app, db, auth, config);
+  users.routes(app);
+  userChatRoutes(app, db, users);
+  chatRoutes(
+    app,
+    db,
+    auth,
+    config,
+    config.environment === 'test' && options.legacyAnonymousTestMode === true,
+  );
   budgetRoutes(
     app,
     db,

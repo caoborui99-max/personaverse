@@ -61,3 +61,24 @@ export async function publicCategories() {
   if (!res.ok) throw new Error('分类服务不可用。');
   return z.object({ items: z.array(z.string()) }).parse(await res.json()).items;
 }
+
+export async function requireUserPage(next = '/account') {
+  const jar = await cookies();
+  const res = await apiFetch(base() + '/auth/session', {
+    headers: { cookie: jar.toString() },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(10000),
+  });
+  if (res.status === 401) redirect('/login?next=' + encodeURIComponent(next));
+  if (!res.ok) throw new Error('个人账户服务暂时不可用。');
+  return z
+    .object({
+      user: z.object({
+        id: z.string(),
+        email: z.string(),
+        displayName: z.string(),
+        emailVerifiedAt: z.string().nullable(),
+      }),
+    })
+    .parse(await res.json()).user;
+}

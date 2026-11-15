@@ -19,7 +19,7 @@ export function PersonaCard({ persona, index = 0 }: { persona: Persona; index?: 
       <div className="card-content">
         <div className="card-heading">
           <span className="tag">{persona.category}</span>
-          <FavoriteButton slug={persona.slug} />
+          <FavoriteButton slug={persona.slug} mock={persona.mock} />
         </div>
         <Link href={'/persona/' + persona.slug}>
           <h3>{persona.name}</h3>

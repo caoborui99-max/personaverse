@@ -28,7 +28,8 @@
     "cf:typecheck": "tsc --noEmit -p cloudflare/tsconfig.json",
     "ai:recover:test": "node --env-file=.env.test.local --import tsx scripts/ai-recover.ts",
     "test:workers": "node --env-file=.env.test.local node_modules/vitest/vitest.mjs run --config vitest.workers.config.ts",
-    "cf:wasm": "node scripts/generate-static-argon.mjs"
+    "cf:wasm": "node scripts/generate-static-argon.mjs",
+    "test:users:e2e": "node --env-file=.env.test.local --import tsx scripts/database-browser.ts --users"
   },
   "devDependencies": {
     "typescript": "5.9.3",

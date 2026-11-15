@@ -1,3 +1,4 @@
+import { localMailBridge } from './local-mail-bridge.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 const command = process.argv[2];
@@ -10,6 +11,7 @@ const env = {
   NEXT_TELEMETRY_DISABLED: '1',
   XDG_CONFIG_HOME: process.cwd() + '/.local-cf-config',
 };
+let mailbox;
 let args,
   cwd = process.cwd();
 if (command === 'build') {
@@ -33,7 +35,15 @@ if (command === 'build') {
     !['127.0.0.1', 'localhost'].includes(parsed.hostname)
   )
     throw new Error('Isolated PostgreSQL only');
-  writeFileSync('cloudflare/api/.dev.vars', `TEST_DATABASE_URL=${url}\n`, { mode: 0o600 });
+  mailbox = await localMailBridge({
+    directory: process.env.PV_LOCAL_MAIL_DIR ?? '.local-mail',
+    origin: 'http://127.0.0.1:4320',
+  });
+  writeFileSync(
+    'cloudflare/api/.dev.vars',
+    `TEST_DATABASE_URL=${url}\nLEGACY_ANON_REGRESSION=${process.env.PV_LEGACY_ANON_REGRESSION === '1' ? '1' : '0'}\nLOCAL_MAIL_URL=${mailbox.url}\nLOCAL_MAIL_CAPABILITY=${mailbox.capability}\n`,
+    { mode: 0o600 },
+  );
   args = [
     'node_modules/wrangler/bin/wrangler.js',
     'dev',
@@ -50,4 +60,7 @@ if (command === 'build') {
 } else throw new Error('Only local build/dev are supported; no remote command exists');
 const p = spawn(process.execPath, args, { cwd, env, stdio: 'inherit' });
 for (const s of ['SIGINT', 'SIGTERM']) process.on(s, () => p.kill(s));
-p.on('exit', (c) => process.exit(c ?? 1));
+p.on('exit', async (c) => {
+  await mailbox?.close();
+  process.exit(c ?? 1);
+});

@@ -60,3 +60,10 @@ export function createClient(base = '/api/v1') {
   };
 }
 export { createAdminClient, AdminApiError } from './admin.ts';
+export {
+  createUserClient,
+  UserApiError,
+  UserProfile,
+  PersonalConversation,
+  type PersonalHistoryList,
+} from './user.ts';

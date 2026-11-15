@@ -20,3 +20,5 @@ cloudflare/schema.prisma
 cloudflare/**/.dev.vars*
 
 cloudflare/**/.wrangler/
+
+.local-mail/

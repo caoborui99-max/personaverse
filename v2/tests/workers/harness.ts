@@ -2,10 +2,11 @@ import { PrismaClient } from '@prisma/client';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
-import { unlinkSync } from 'node:fs';
+import { unlinkSync, rmSync, mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { passwordHash } from '../../apps/api/src/auth.ts';
 const origin = 'http://127.0.0.1:4320';
-export async function workersHarness() {
+export async function workersHarness(options: { legacyAnonymousTestMode?: boolean } = {}) {
   let root: PrismaClient,
     db: PrismaClient,
     worker: ChildProcess,
@@ -30,6 +31,8 @@ export async function workersHarness() {
   root = new PrismaClient();
   await root.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
   url.searchParams.set('schema', schema);
+  const mailDirectory = resolve('test-results', 'mail-' + randomUUID());
+  mkdirSync(mailDirectory, { recursive: true, mode: 0o700 });
   const result = spawnSync(process.execPath, ['scripts/database.mjs', 'migrate'], {
     env: { ...process.env, DATABASE_URL: url.toString() },
     stdio: 'pipe',
@@ -42,7 +45,12 @@ export async function workersHarness() {
     await db.adminAccount.create({ data: { email, passwordHash: await passwordHash(password) } })
   ).id;
   worker = spawn(process.execPath, ['scripts/cf-local.mjs', 'dev'], {
-    env: { ...process.env, DATABASE_URL: url.toString() },
+    env: {
+      ...process.env,
+      DATABASE_URL: url.toString(),
+      PV_LOCAL_MAIL_DIR: mailDirectory,
+      PV_LEGACY_ANON_REGRESSION: options.legacyAnonymousTestMode === false ? '0' : '1',
+    },
     stdio: 'ignore',
   });
   const deadline = Date.now() + 60000;
@@ -62,6 +70,7 @@ export async function workersHarness() {
 
   return {
     db,
+    mailDirectory,
     email,
     password,
     adminId,
@@ -76,6 +85,7 @@ export async function workersHarness() {
         if (schema) await root.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
         await root.$disconnect();
       }
+      rmSync(mailDirectory, { recursive: true, force: true });
       try {
         unlinkSync('cloudflare/api/.dev.vars');
       } catch {}

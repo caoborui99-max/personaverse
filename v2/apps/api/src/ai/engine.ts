@@ -409,30 +409,32 @@ export class BudgetEngine {
         _max: { sequence: true },
       });
       const seq = last._max.sequence ?? 0;
-      await tx.chatMessage.createMany({
-        data: [
-          {
-            sessionId: r.sessionId,
-            sequence: seq + 1,
-            clientMessageId: r.clientMessageId,
-            role: 'user',
-            content: r.inputText,
-          },
-          {
-            sessionId: r.sessionId,
-            sequence: seq + 2,
-            clientMessageId: r.clientMessageId,
-            role: 'assistant',
-            content: result.content,
-          },
-        ],
-      });
+      const retained = await tx.chatSession.findUniqueOrThrow({ where: { id: r.sessionId } });
+      if (!retained.deletedAt)
+        await tx.chatMessage.createMany({
+          data: [
+            {
+              sessionId: r.sessionId,
+              sequence: seq + 1,
+              clientMessageId: r.clientMessageId,
+              role: 'user',
+              content: r.inputText,
+            },
+            {
+              sessionId: r.sessionId,
+              sequence: seq + 2,
+              clientMessageId: r.clientMessageId,
+              role: 'assistant',
+              content: result.content,
+            },
+          ],
+        });
       await this.event(tx, id, 'SUCCEEDED_SIMULATED');
       return tx.chatRequest.update({
         where: { id },
         data: {
           status: 'succeeded',
-          response: { ...result, simulated: true },
+          response: retained.deletedAt ? Prisma.DbNull : { ...result, simulated: true },
           updatedAt: this.now(),
         },
       });

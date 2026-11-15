@@ -12,6 +12,7 @@ export function chatRoutes(
   db: PrismaClient,
   auth: ReturnType<typeof authService>,
   config: DatabaseConfig,
+  legacyAnonymousTestMode = false,
 ) {
   const visitorCookie = config.secure ? '__Host-pv_v2_visitor' : 'pv_v2_visitor_local';
   async function visitor(req: FastifyRequest) {
@@ -64,6 +65,7 @@ export function chatRoutes(
     return s;
   }
   app.post('/api/v1/visitor/session', async (req, reply) => {
+    if (!legacyAnonymousTestMode) fail(401, 'USER_REQUIRED', '请注册并登录后开始聊天。');
     z.object({}).strict().parse(req.body);
     try {
       await visitor(req);
@@ -82,6 +84,7 @@ export function chatRoutes(
     return { mode: 'mock', ready: true };
   });
   app.post('/api/v1/chat/sessions', async (req) => {
+    if (!legacyAnonymousTestMode) fail(401, 'USER_REQUIRED', '请注册并登录后开始聊天。');
     const v = await visitor(req),
       body = z
         .object({ personaSlug: z.string().max(80) })
@@ -147,6 +150,8 @@ export function chatRoutes(
     });
     app.get(prefix + '/:id/messages', async (req) => dto((await owned(req, admin)).id));
     app.post(prefix + '/:id/messages', async (req) => {
+      if (!admin && !legacyAnonymousTestMode)
+        fail(401, 'USER_REQUIRED', '旧匿名记录只读，不支持认领。');
       const session = await owned(req, admin),
         body = SendMessage.parse(req.body);
       if (body.content === '/fail-once') {

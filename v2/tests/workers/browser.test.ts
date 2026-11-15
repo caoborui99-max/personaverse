@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { workersHarness } from './harness.ts';
 let h: Awaited<ReturnType<typeof workersHarness>>;
 beforeAll(async () => {
-  h = await workersHarness();
+  h = await workersHarness({ legacyAnonymousTestMode: true });
 }, 120000);
 afterAll(async () => {
   await h?.close();

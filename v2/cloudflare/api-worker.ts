@@ -1,3 +1,4 @@
+import { deliverLocalMail } from './local-mail-transport.ts';
 import { hash, verify } from './argon-wasm.ts';
 import { createFetchApp } from '../apps/api/src/fetch-app.ts';
 import { PrismaClient } from '@prisma/client';
@@ -6,7 +7,13 @@ import { registerDatabaseApp } from '../apps/api/src/database-routes.ts';
 export default {
   async fetch(
     request: Request,
-    env: { TEST_DATABASE_URL: string; WEB_ORIGIN: string },
+    env: {
+      TEST_DATABASE_URL: string;
+      WEB_ORIGIN: string;
+      LEGACY_ANON_REGRESSION?: string;
+      LOCAL_MAIL_URL?: string;
+      LOCAL_MAIL_CAPABILITY?: string;
+    },
     ctx: { waitUntil: (promise: Promise<unknown>) => void },
   ) {
     const url = new URL(env.TEST_DATABASE_URL);
@@ -60,6 +67,15 @@ export default {
     const app = createFetchApp();
     registerDatabaseApp(app.registration(), {
       db,
+      legacyAnonymousTestMode: env.LEGACY_ANON_REGRESSION === '1',
+      mailSender:
+        env.LOCAL_MAIL_URL && env.LOCAL_MAIL_CAPABILITY
+          ? {
+              async send(message) {
+                await deliverLocalMail(env.LOCAL_MAIL_URL!, env.LOCAL_MAIL_CAPABILITY!, message);
+              },
+            }
+          : undefined,
       config: {
         environment: 'test',
         databaseUrl: env.TEST_DATABASE_URL,

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Persona, type Persona as PersonaType } from '@pv/shared';
 import { PersonaCard } from './persona-card';
+import { AccountFavoriteButton, AccountFavorites } from './user-favorites';
 const KEY = 'pv:v2:favorites';
 function read(): string[] {
   try {
@@ -14,7 +15,7 @@ function read(): string[] {
   }
 }
 let memory: string[] = [];
-export function FavoriteButton({ slug }: { slug: string }) {
+function DeviceFavoriteButton({ slug }: { slug: string }) {
   const [saved, setSaved] = useState(false);
   useEffect(() => {
     const sync = () => setSaved(read().includes(slug) || memory.includes(slug));
@@ -40,7 +41,7 @@ export function FavoriteButton({ slug }: { slug: string }) {
     </button>
   );
 }
-export function Favorites() {
+function DeviceFavorites() {
   const [slugs, setSlugs] = useState<string[]>([]);
   const [items, setItems] = useState<PersonaType[]>([]);
   const [error, setError] = useState('');
@@ -90,4 +91,11 @@ export function Favorites() {
       )}
     </>
   );
+}
+
+export function FavoriteButton({ slug, mock = false }: { slug: string; mock?: boolean }) {
+  return mock ? <DeviceFavoriteButton slug={slug} /> : <AccountFavoriteButton slug={slug} />;
+}
+export function Favorites({ mock = false }: { mock?: boolean }) {
+  return mock ? <DeviceFavorites /> : <AccountFavorites />;
 }

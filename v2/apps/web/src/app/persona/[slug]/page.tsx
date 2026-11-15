@@ -37,7 +37,7 @@ export default async function PersonaPage({ params }: { params: Promise<{ slug: 
             <Link className="button primary" href={'/chat/' + p.slug}>
               开始模拟聊天 ↗
             </Link>
-            <FavoriteButton slug={p.slug} />
+            <FavoriteButton slug={p.slug} mock={p.mock} />
           </div>
         </div>
       </div>

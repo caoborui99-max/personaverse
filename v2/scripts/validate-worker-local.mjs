@@ -30,7 +30,11 @@ for (const path of [
 ])
   await check('SSR ' + path, async () => {
     const r = await fetch(base + path, { redirect: 'manual' });
-    const expected = path === '/admin' ? 307 : path.includes('local-test') ? 404 : 200;
+    const expected = ['/admin', '/favorites'].includes(path)
+      ? 307
+      : path.includes('local-test')
+        ? 404
+        : 200;
     return r.status === expected || { status: r.status, expected };
   });
 const report = {

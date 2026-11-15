@@ -25,6 +25,8 @@ export default function Layout({ children }: Readonly<{ children: React.ReactNod
             <Link href="/">首页</Link>
             <Link href="/explore">人格广场</Link>
             <Link href="/favorites">我的收藏</Link>
+            <Link href="/history">聊天记录</Link>
+            <Link href="/account">个人中心</Link>
           </nav>
           <span className="mode">
             <i /> AI 未接入
@@ -47,6 +49,12 @@ export default function Layout({ children }: Readonly<{ children: React.ReactNod
           </Link>
           <Link href="/favorites">
             ♡<span>收藏</span>
+          </Link>
+          <Link href="/history">
+            ☷<span>记录</span>
+          </Link>
+          <Link href="/account">
+            ○<span>我的</span>
           </Link>
         </nav>
       </body>
