@@ -18,3 +18,5 @@ cloudflare/.wrangler
 cloudflare/**/.wrangler
 
 .local-mail
+
+.local-preview

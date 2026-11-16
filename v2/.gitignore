@@ -22,3 +22,5 @@ cloudflare/**/.dev.vars*
 cloudflare/**/.wrangler/
 
 .local-mail/
+
+.local-preview/

@@ -29,7 +29,13 @@
     "ai:recover:test": "node --env-file=.env.test.local --import tsx scripts/ai-recover.ts",
     "test:workers": "node --env-file=.env.test.local node_modules/vitest/vitest.mjs run --config vitest.workers.config.ts",
     "cf:wasm": "node scripts/generate-static-argon.mjs",
-    "test:users:e2e": "node --env-file=.env.test.local --import tsx scripts/database-browser.ts --users"
+    "test:users:e2e": "node --env-file=.env.test.local --import tsx scripts/database-browser.ts --users",
+    "preview:prepare": "node --import tsx scripts/local-preview.ts prepare",
+    "preview:start": "node --import tsx scripts/local-preview.ts start",
+    "preview:status": "node --import tsx scripts/local-preview.ts status",
+    "preview:stop": "node --import tsx scripts/local-preview.ts stop",
+    "test:runtime:e2e": "playwright test --config playwright.runtime.config.ts",
+    "preview:verify": "node --import tsx scripts/local-preview.ts verify"
   },
   "devDependencies": {
     "typescript": "5.9.3",
