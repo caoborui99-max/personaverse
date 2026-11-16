@@ -29,6 +29,7 @@
     "ai:recover:test": "node --env-file=.env.test.local --import tsx scripts/ai-recover.ts",
     "test:workers": "node --env-file=.env.test.local node_modules/vitest/vitest.mjs run --config vitest.workers.config.ts",
     "cf:wasm": "node scripts/generate-static-argon.mjs",
+    "cf:bench:argon": "node scripts/benchmark-worker-argon.mjs",
     "test:users:e2e": "node --env-file=.env.test.local --import tsx scripts/database-browser.ts --users",
     "preview:prepare": "node --import tsx scripts/local-preview.ts prepare",
     "preview:start": "node --import tsx scripts/local-preview.ts start",

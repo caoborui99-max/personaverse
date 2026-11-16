@@ -1,3 +1,7 @@
+# 2026-11-16 免费方案本地验收更新
+
+最新运行、HTTPS热重载修复、原生用户/Owner浏览器验证和免费CPU资源门禁见[本轮完整报告](cloudflare-free-readiness.md)。当前Next/OpenNext、API和PG可在本地Workers运行，不能据此宣称免费线上认证稳定；现有Argon2id强度的本地CPU估计超过10ms门槛。旧阶段数字保留为历史记录，不沿用为本轮结果。
+
 # Cloudflare 本地验证更新：Phase 4A.1
 
 2026-11-14 更新，基线 `a448da9bd8f32367c7d82d89175936f4fec498d9`。**原有两项本地运行时阻断已修复，本轮指定的本地业务路径通过。** 17 项 Workers API、5 项原有后台浏览器测试和 10 项探针通过。完整方法、统计、源码变换校验及剩余上线限制见 [A.1 交付报告](phase-4a-1-status.md)。

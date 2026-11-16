@@ -15,9 +15,20 @@ export default {
       RENGINE_MOCK?: string;
       LOCAL_MAIL_URL?: string;
       LOCAL_MAIL_CAPABILITY?: string;
+      LOCAL_GENERATION?: string;
     },
     ctx: { waitUntil: (promise: Promise<unknown>) => void },
   ) {
+    // This entry point is deliberately local-only. Match the real browser origin
+    // when testing Secure/__Host- cookies, without relaxing production policy.
+    const origin = new URL(env.WEB_ORIGIN);
+    if (
+      origin.hostname !== '127.0.0.1' ||
+      origin.port !== '4320' ||
+      !['http:', 'https:'].includes(origin.protocol) ||
+      origin.origin !== env.WEB_ORIGIN
+    )
+      return Response.json({ error: { code: 'LOCAL_ORIGIN_ONLY' } }, { status: 503 });
     const url = new URL(env.TEST_DATABASE_URL);
     if (
       !['127.0.0.1', 'localhost'].includes(url.hostname) ||
@@ -28,6 +39,11 @@ export default {
     url.searchParams.delete('schema');
     if (!/^(?:public|pv_[a-z0-9_]+)$/.test(schema))
       return Response.json({ error: { code: 'INVALID_LOCAL_SCHEMA' } }, { status: 503 });
+    if (new URL(request.url).pathname === '/__local/runtime')
+      return Response.json({
+        generation: env.LOCAL_GENERATION ?? 'initial',
+        secureCookies: origin.protocol === 'https:',
+      });
     const adapter = new PrismaPg(
       {
         connectionString: url.toString(),
@@ -83,7 +99,7 @@ export default {
         environment: 'test',
         databaseUrl: env.TEST_DATABASE_URL,
         origin: env.WEB_ORIGIN,
-        secure: false,
+        secure: origin.protocol === 'https:',
       },
     });
     try {

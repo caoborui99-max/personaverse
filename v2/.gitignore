@@ -18,6 +18,7 @@ apps/web/.wrangler/
 cloudflare/schema.prisma
 
 cloudflare/**/.dev.vars*
+cloudflare/api/.local-runtime.json
 
 cloudflare/**/.wrangler/
 
