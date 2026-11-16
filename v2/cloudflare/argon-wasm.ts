@@ -1,13 +1,7 @@
 import { argon2id, argon2Verify } from 'hash-wasm';
-export const Algorithm = { Argon2id: 2 };
-export const PARAMETERS = { memoryCost: 19456, timeCost: 2, parallelism: 1 } as const;
+import { PARAMETERS, validPhc } from './argon-policy.ts';
+export { Algorithm, PARAMETERS, validPhc } from './argon-policy.ts';
 // Bound parameters BEFORE handing an untrusted PHC string to a memory-hard implementation.
-export function validPhc(value: string) {
-  return (
-    /^\$argon2id\$v=19\$m=19456,t=2,p=1\$[A-Za-z0-9+/]{22,86}\$[A-Za-z0-9+/]{43}$/.test(value) &&
-    value.length < 256
-  );
-}
 let active = 0;
 export async function hash(password: string, options = PARAMETERS) {
   if (

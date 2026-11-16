@@ -1,5 +1,7 @@
 # Cloudflare 免费方案本地运行验收
 
+后续补充：[Argon2id私有DO本地实验](argon-free-offload-validation.md)。下文保留`c7f6dd7`阶段证据；后续没有把原CPU门禁改判为通过，也没有部署验证Free账号额度。
+
 日期：2026-11-16。开发分支 `feat/v2-minimal-mobile-ui`，开始时 HEAD `15ba04a057bda5f764e0eec29c268e014c52b28f`。本报告独立重跑测试，不沿用上一阶段统计。
 
 **结论：本地 Workers 功能可用；完整网站在 Workers Free 上稳定运行的验收仍阻断。** 保留现有密码强度的 Argon2id 明显超过本机估算的免费 10ms CPU 门槛。没有创建云资源、登录 Cloudflare、部署、隧道、公网入口、真实邮件或模型调用。未修改作者正式人格内容。

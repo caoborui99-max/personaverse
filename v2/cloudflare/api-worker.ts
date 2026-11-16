@@ -1,11 +1,11 @@
 import { mockRengineProvider } from '../apps/api/src/auth-providers/rengine.ts';
 import { deliverLocalMail } from './local-mail-transport.ts';
-import { hash, verify } from './argon-wasm.ts';
+import { hash, verify, withPasswordHasher, type PasswordNamespace } from './argon-rpc.ts';
 import { createFetchApp } from '../apps/api/src/fetch-app.ts';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { registerDatabaseApp } from '../apps/api/src/database-routes.ts';
-export default {
+const apiWorker = {
   async fetch(
     request: Request,
     env: {
@@ -16,6 +16,7 @@ export default {
       LOCAL_MAIL_URL?: string;
       LOCAL_MAIL_CAPABILITY?: string;
       LOCAL_GENERATION?: string;
+      PASSWORD_HASHERS?: PasswordNamespace;
     },
     ctx: { waitUntil: (promise: Promise<unknown>) => void },
   ) {
@@ -43,6 +44,7 @@ export default {
       return Response.json({
         generation: env.LOCAL_GENERATION ?? 'initial',
         secureCookies: origin.protocol === 'https:',
+        requestOriginMatches: request.headers.get('origin') === env.WEB_ORIGIN,
       });
     const adapter = new PrismaPg(
       {
@@ -110,5 +112,10 @@ export default {
     } finally {
       ctx.waitUntil(app.close());
     }
+  },
+};
+export default {
+  fetch(...args: Parameters<typeof apiWorker.fetch>) {
+    return withPasswordHasher(args[1].PASSWORD_HASHERS, () => apiWorker.fetch(...args));
   },
 };

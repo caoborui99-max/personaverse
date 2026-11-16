@@ -64,15 +64,18 @@ if (command === 'build') {
   if (source.error) throw new Error('Invalid local API configuration');
   // Multi-worker CLI options apply to the first worker. Pin the API origin's
   // protocol too, including after a Wrangler config/source hot reload.
-  writeFileSync(
-    apiRuntimeConfig,
+  const runtimeJson = Buffer.from(
     JSON.stringify({
       ...source.config,
       vars: { ...source.config.vars, WEB_ORIGIN: origin },
       dev: { ...source.config.dev, local_protocol: https ? 'https' : 'http' },
     }),
-    { mode: 0o600 },
   );
+  if (runtimeJson.length > 4096)
+    throw new Error('Local runtime configuration exceeds reserved size');
+  const runtimeBuffer = Buffer.alloc(4096, ' ');
+  runtimeJson.copy(runtimeBuffer);
+  writeFileSync(apiRuntimeConfig, runtimeBuffer, { mode: 0o600 });
   args = [
     'node_modules/wrangler/bin/wrangler.js',
     'dev',
@@ -85,6 +88,8 @@ if (command === 'build') {
     'cloudflare/web.jsonc',
     '-c',
     apiRuntimeConfig,
+    '-c',
+    'cloudflare/password/wrangler.jsonc',
     ...tlsArgs,
   ];
 } else throw new Error('Only local build/dev are supported; no remote command exists');

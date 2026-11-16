@@ -1,4 +1,7 @@
 // Minimal declarations for the experimental host boundary; generated OpenNext JS is checked by its own build.
+declare module 'cloudflare:workers' {
+  export class DurableObject {}
+}
 declare module 'cloudflare:node' {
   export function httpServerHandler(server: import('node:http').Server): {
     fetch(request: Request): Promise<Response>;

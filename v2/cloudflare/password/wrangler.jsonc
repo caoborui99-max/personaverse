@@ -1,0 +1,9 @@
+{
+  "name": "pv-password-local-only",
+  "main": "../password-worker.ts",
+  "compatibility_date": "2026-11-13",
+  "workers_dev": false,
+  "preview_urls": false,
+  "alias": { "hash-wasm": "../generated/hash-wasm/static.mjs" },
+  "migrations": [{ "tag": "v1-local-password", "new_sqlite_classes": ["PasswordHasher"] }],
+}

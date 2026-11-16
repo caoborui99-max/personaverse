@@ -279,12 +279,32 @@ it('HTTPS unpublication preserves history, blocks sends, and admin password chan
   );
   expect(changed.status).toBe(200);
   expect((await api(owner, '/admin/auth/session')).status).toBe(401);
+  let releaseScripts!: () => void;
+  const hydration = new Promise<void>((resolve) => {
+    releaseScripts = resolve;
+  });
+  await owner.route(/\/_next\/static\/.*\.js$/, async (route) => {
+    if (new URL(route.request().frame().url()).pathname === '/admin') await hydration;
+    await route.continue();
+  });
   await owner.goto('/admin/login');
   await owner.getByLabel('管理员邮箱').fill(h.email);
   await owner.getByLabel('密码', { exact: true }).fill(next);
   await owner.getByRole('button', { name: '登录', exact: true }).click();
   await ui(owner).toHaveURL(h.origin + '/admin');
-  await owner.getByRole('button', { name: '退出登录', exact: true }).click();
+  const logoutButton = owner.getByRole('button', { name: '退出登录', exact: true });
+  try {
+    await ui(logoutButton).toBeDisabled(); // Delayed client JS must not swallow a logout click.
+  } finally {
+    releaseScripts();
+  }
+  const [loggedOut] = await Promise.all([
+    owner.waitForResponse(
+      (r) => r.url().endsWith('/admin/auth/logout') && r.request().method() === 'POST',
+    ),
+    logoutButton.click(),
+  ]);
+  expect(loggedOut.status()).toBe(200);
   await ui(owner).toHaveURL(h.origin + '/admin/login');
   expect((await api(owner, '/admin/auth/session')).status).toBe(401);
   expect(errors).toEqual([]);
@@ -300,4 +320,42 @@ it('HTTPS expired server sessions redirect to native login without weakening the
   await ui(second).toHaveURL(h.origin + '/login?next=%2Faccount');
   expect((await api(second, '/auth/session')).status).toBe(401);
   expect(errors).toEqual([]);
+}, 90000);
+
+it('a missing private password binding denies native and administrator authentication with 503 and recovers safely', async () => {
+  await first.goto('/login');
+  const usersBefore = await h.db.user.count();
+  const sessionsBefore = await h.db.userSession.count();
+  const adminsBefore = await h.db.adminSession.count();
+  await h.passwordService(false);
+  try {
+    const pre = (await api(first, '/auth/csrf')).value;
+    for (const [path, body] of [
+      ['/auth/login', account],
+      ['/auth/register', { email: randomUUID() + '@test.invalid', password: account.password }],
+    ] as const) {
+      const r = await api(first, path, 'POST', body, pre.csrfToken);
+      expect(r.status, r.value.error?.code).toBe(503);
+      expect(r.value.error.code).toBe('PASSWORD_SERVICE_UNAVAILABLE');
+      expect(JSON.stringify(r.value)).not.toContain(account.password);
+    }
+    const adminPre = (await api(owner, '/admin/auth/csrf')).value;
+    const admin = await api(
+      owner,
+      '/admin/auth/login',
+      'POST',
+      { email: h.email, password: h.password },
+      adminPre.csrfToken,
+    );
+    expect(admin.status, admin.value.error?.code).toBe(503);
+    expect((await api(first, '/auth/session')).status).toBe(401);
+    expect((await api(owner, '/admin/auth/session')).status).toBe(401);
+    expect(await h.db.user.count()).toBe(usersBefore);
+    expect(await h.db.userSession.count()).toBe(sessionsBefore);
+    expect(await h.db.adminSession.count()).toBe(adminsBefore);
+  } finally {
+    await h.passwordService(true);
+  }
+  await login(first);
+  await secureCookie(first, '__Host-pv_v2_user');
 }, 90000);

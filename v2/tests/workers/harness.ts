@@ -14,12 +14,12 @@ export async function workersHarness(
   const origin = `${tls ? 'https' : 'http'}://127.0.0.1:4320`;
   const localGet = async (path: string) => {
     if (!tls) {
-      const r = await fetch(origin + path);
+      const r = await fetch(origin + path, { headers: { origin } });
       return { status: r.status, value: await r.json() };
     }
     return new Promise<{ status: number; value: unknown }>((resolve, reject) => {
       // Trust the isolated CA and verify the IP SAN; never disable TLS validation.
-      const req = get(origin + path, { ca: readFileSync(tls.ca) }, (r) => {
+      const req = get(origin + path, { ca: readFileSync(tls.ca), headers: { origin } }, (r) => {
         let data = '';
         r.on('data', (chunk) => {
           data += chunk;
@@ -102,6 +102,42 @@ export async function workersHarness(
   }
   if (!ready) throw new Error('Local Workers did not become healthy');
 
+  type LocalConfig = {
+    vars: Record<string, string>;
+    dev: { local_protocol: 'http' | 'https' };
+    durable_objects: { bindings: Record<string, string>[] };
+  };
+  const configPath = 'cloudflare/api/.local-runtime.json';
+  const passwordBindings = (JSON.parse(readFileSync(configPath, 'utf8')) as LocalConfig)
+    .durable_objects.bindings;
+  async function configure(change: (config: LocalConfig) => void) {
+    const config = JSON.parse(readFileSync(configPath, 'utf8')) as LocalConfig;
+    const generation = randomUUID();
+    config.vars.LOCAL_GENERATION = generation;
+    change(config);
+    // Wrangler watches the file's inode and misses replacement-file updates.
+    // Keep its preallocated size and inode: one bounded write, no truncate gap.
+    const bytes = Buffer.from(JSON.stringify(config));
+    if (bytes.length > 4096) throw new Error('Local runtime configuration exceeds reserved size');
+    const buffer = Buffer.alloc(4096, ' ');
+    bytes.copy(buffer);
+    writeFileSync(configPath, buffer, { flag: 'r+' });
+    const deadline = Date.now() + 30000;
+    while (Date.now() < deadline) {
+      try {
+        const r = await localGet('/__local/runtime');
+        const value = r.value as { generation: string; requestOriginMatches: boolean };
+        // A new isolate may precede the proxy's protocol update. Acknowledge
+        // both the exact generation and the real forwarded browser Origin.
+        const expectedOriginMatch = config.dev.local_protocol === (tls ? 'https' : 'http');
+        if (value.generation === generation && value.requestOriginMatches === expectedOriginMatch)
+          return;
+      } catch {}
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    throw new Error('Local configuration reload did not complete');
+  }
+
   return {
     origin,
     tls,
@@ -111,21 +147,14 @@ export async function workersHarness(
     password,
     adminId,
     async reload(localProtocol?: 'http' | 'https') {
-      const configPath = 'cloudflare/api/.local-runtime.json';
-      const config = JSON.parse(readFileSync(configPath, 'utf8'));
-      const generation = randomUUID();
-      config.vars.LOCAL_GENERATION = generation;
-      if (localProtocol) config.dev.local_protocol = localProtocol;
-      writeFileSync(configPath, JSON.stringify(config), { mode: 0o600 });
-      const deadline = Date.now() + 30000;
-      while (Date.now() < deadline) {
-        try {
-          const r = await localGet('/__local/runtime');
-          if ((r.value as { generation: string }).generation === generation) return;
-        } catch {}
-        await new Promise((r) => setTimeout(r, 200));
-      }
-      throw new Error('Local configuration reload did not complete');
+      await configure((config) => {
+        if (localProtocol) config.dev.local_protocol = localProtocol;
+      });
+    },
+    async passwordService(available: boolean) {
+      await configure((config) => {
+        config.durable_objects.bindings = available ? passwordBindings : [];
+      });
     },
     async close() {
       if (worker && worker.exitCode === null) {

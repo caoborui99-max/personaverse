@@ -6,13 +6,15 @@ import type { AdminPersona, CoreVersion, DraftFields, Message } from '@pv/shared
 const api = createAdminClient();
 const text = (e: unknown) => (e instanceof Error ? e.message : '操作失败，请重试。');
 export function AdminLogout() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   return (
     <>
       <button
         className="text-link"
-        disabled={busy}
+        disabled={busy || !ready}
         onClick={async () => {
           setBusy(true);
           try {

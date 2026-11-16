@@ -3,7 +3,7 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { Email, Password, passwordHash, passwordValid, secretHash } from './auth.ts';
-import { fail } from './errors.ts';
+import { ApiFailure, fail } from './errors.ts';
 import type { DatabaseConfig } from './config.ts';
 import type { LocalMail, MailSender } from './user-mail.ts';
 
@@ -53,6 +53,7 @@ async function verifyPassword(encoded: string, password: string) {
   try {
     return await passwordValid(encoded, password);
   } catch (error) {
+    if (error instanceof ApiFailure && error.status >= 500) throw error;
     if (error && typeof error === 'object' && 'statusCode' in error && error.statusCode === 429)
       throw error;
     return false;
