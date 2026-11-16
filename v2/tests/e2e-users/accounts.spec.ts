@@ -347,3 +347,37 @@ test('idempotent messages, retained unlisted history, deletion and account closu
   await expect(page).toHaveURL(/\/login\?closed=1$/);
   expect((await page.request.get('/api/v1/auth/session')).status()).toBe(401);
 });
+
+test('explicit mock external binding preserves local account and multi-cookie response', async ({
+  page,
+  baseURL,
+}) => {
+  const account = fresh();
+  await verified(page.request, new URL(baseURL!).origin, account);
+  await login(page, account);
+  const before = await (await page.request.get('/api/v1/auth/session')).json();
+  await page.getByLabel('绑定热土确认密码').fill(account.password);
+  const response = page.waitForResponse(
+    (r) => r.url().endsWith('/api/v1/auth/rengine/finalize') && r.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: '开始模拟热土绑定' }).click();
+  await expect(page.getByRole('status')).toHaveText('热土身份已绑定（模拟验证）。');
+  const result = await response;
+  expect(result.status()).toBe(200);
+  const cookies = (await result.headersArray()).filter(
+    (x) => x.name.toLowerCase() === 'set-cookie',
+  );
+  expect(cookies).toHaveLength(2);
+  expect((await page.context().cookies()).some((x) => x.name === 'pv_rengine_flow_local')).toBe(
+    false,
+  );
+  expect((await page.context().cookies()).some((x) => x.name === 'pv_v2_user_login_local')).toBe(
+    false,
+  );
+  expect(new URL(page.url()).search).toBe('');
+  expect((await (await page.request.get('/api/v1/auth/session')).json()).user.id).toBe(
+    before.user.id,
+  );
+  await page.getByRole('link', { name: '返回个人中心' }).click();
+  await expect(page.getByText('热土身份已绑定（模拟验证）。', { exact: true })).toBeVisible();
+});

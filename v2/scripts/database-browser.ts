@@ -41,6 +41,7 @@ try {
       env: {
         ...process.env,
         PV_MODE: 'database',
+        PV_RENGINE_MOCK: users ? '1' : '0',
         PV_LOCAL_MAIL: users ? '1' : '0',
         PV_LOCAL_MAIL_DIR: mailDirectory,
         PV_TEST_MAIL_DIR: mailDirectory,

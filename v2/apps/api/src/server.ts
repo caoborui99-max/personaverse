@@ -1,3 +1,4 @@
+import { mockRengineProvider } from './auth-providers/rengine.ts';
 import { localFileMail } from './node-local-mail.ts';
 import { buildApp } from './app.ts';
 import { buildDatabaseApp } from './database-app.ts';
@@ -11,6 +12,10 @@ const app =
   process.env.PV_MODE === 'mock-regression'
     ? buildApp({ origin: process.env.WEB_ORIGIN ?? 'http://127.0.0.1:4310' })
     : buildDatabaseApp({
+        externalProvider:
+          process.env.APP_ENV === 'test' && process.env.PV_RENGINE_MOCK === '1'
+            ? mockRengineProvider()
+            : undefined,
         mailSender:
           process.env.PV_LOCAL_MAIL === '1' &&
           ['test', 'development'].includes(process.env.APP_ENV ?? '')

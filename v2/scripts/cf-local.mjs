@@ -41,7 +41,7 @@ if (command === 'build') {
   });
   writeFileSync(
     'cloudflare/api/.dev.vars',
-    `TEST_DATABASE_URL=${url}\nLEGACY_ANON_REGRESSION=${process.env.PV_LEGACY_ANON_REGRESSION === '1' ? '1' : '0'}\nLOCAL_MAIL_URL=${mailbox.url}\nLOCAL_MAIL_CAPABILITY=${mailbox.capability}\n`,
+    `RENGINE_MOCK=${process.env.PV_RENGINE_MOCK === '1' ? '1' : '0'}\nTEST_DATABASE_URL=${url}\nLEGACY_ANON_REGRESSION=${process.env.PV_LEGACY_ANON_REGRESSION === '1' ? '1' : '0'}\nLOCAL_MAIL_URL=${mailbox.url}\nLOCAL_MAIL_CAPABILITY=${mailbox.capability}\n`,
     { mode: 0o600 },
   );
   args = [

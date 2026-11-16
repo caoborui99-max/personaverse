@@ -13,7 +13,8 @@ class Reply {
     return this;
   }
   header(name: string, value: string) {
-    this.headers.set(name, value);
+    if (name.toLowerCase() === 'set-cookie') this.headers.append(name, value);
+    else this.headers.set(name, value);
     return this;
   }
   send(value: unknown) {

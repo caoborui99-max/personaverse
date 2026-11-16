@@ -6,7 +6,9 @@ import { unlinkSync, rmSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { passwordHash } from '../../apps/api/src/auth.ts';
 const origin = 'http://127.0.0.1:4320';
-export async function workersHarness(options: { legacyAnonymousTestMode?: boolean } = {}) {
+export async function workersHarness(
+  options: { legacyAnonymousTestMode?: boolean; externalMock?: boolean } = {},
+) {
   let root: PrismaClient,
     db: PrismaClient,
     worker: ChildProcess,
@@ -49,6 +51,7 @@ export async function workersHarness(options: { legacyAnonymousTestMode?: boolea
       ...process.env,
       DATABASE_URL: url.toString(),
       PV_LOCAL_MAIL_DIR: mailDirectory,
+      PV_RENGINE_MOCK: options.externalMock ? '1' : '0',
       PV_LEGACY_ANON_REGRESSION: options.legacyAnonymousTestMode === false ? '0' : '1',
     },
     stdio: 'ignore',

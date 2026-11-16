@@ -5,6 +5,7 @@ import { buildDatabaseApp } from '../../apps/api/src/database-app.ts';
 import { passwordHash } from '../../apps/api/src/auth.ts';
 export async function harness(
   options: {
+    externalProvider?: import('../../apps/api/src/auth-providers/rengine.ts').RengineProvider;
     mailSender?: import('../../apps/api/src/user-mail.ts').MailSender;
     legacyAnonymousTestMode?: boolean;
   } = {},
@@ -30,6 +31,7 @@ export async function harness(
   const origin = 'http://127.0.0.1:4310';
   const app = buildDatabaseApp({
     db,
+    externalProvider: options.externalProvider,
     mailSender: options.mailSender,
     legacyAnonymousTestMode: options.legacyAnonymousTestMode ?? true,
     clock: () => now,

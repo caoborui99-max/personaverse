@@ -1,3 +1,5 @@
+import { externalAuthRoutes } from './external-auth.ts';
+import type { RengineProvider } from './auth-providers/rengine.ts';
 import { userAuthService } from './user-auth.ts';
 import { userChatRoutes } from './user-chats.ts';
 import type { MailSender } from './user-mail.ts';
@@ -20,6 +22,7 @@ export function registerDatabaseApp(
     fakeBudgetTestMode?: boolean;
     legacyAnonymousTestMode?: boolean;
     mailSender?: MailSender;
+    externalProvider?: RengineProvider;
   } = {},
 ) {
   const config = options.config ?? databaseConfig();
@@ -137,6 +140,7 @@ export function registerDatabaseApp(
   auth.routes(app);
   personaRoutes(app, db, auth);
   users.routes(app);
+  externalAuthRoutes(app, db, users, config, options.externalProvider, options.clock);
   userChatRoutes(app, db, users);
   chatRoutes(
     app,

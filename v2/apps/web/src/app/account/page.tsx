@@ -1,3 +1,4 @@
+import { RengineBinding } from '../../components/rengine-binding';
 import { UserBoundary } from '../../components/user-boundary';
 import { requireUserPage } from '../../lib/server-api';
 import { UserAccount } from '../../components/user-account';
@@ -8,6 +9,7 @@ export default async function Page() {
   return (
     <UserBoundary userId={user.id}>
       <UserAccount initial={user} />
+      <RengineBinding />
     </UserBoundary>
   );
 }

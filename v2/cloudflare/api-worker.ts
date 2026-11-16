@@ -1,3 +1,4 @@
+import { mockRengineProvider } from '../apps/api/src/auth-providers/rengine.ts';
 import { deliverLocalMail } from './local-mail-transport.ts';
 import { hash, verify } from './argon-wasm.ts';
 import { createFetchApp } from '../apps/api/src/fetch-app.ts';
@@ -11,6 +12,7 @@ export default {
       TEST_DATABASE_URL: string;
       WEB_ORIGIN: string;
       LEGACY_ANON_REGRESSION?: string;
+      RENGINE_MOCK?: string;
       LOCAL_MAIL_URL?: string;
       LOCAL_MAIL_CAPABILITY?: string;
     },
@@ -67,6 +69,7 @@ export default {
     const app = createFetchApp();
     registerDatabaseApp(app.registration(), {
       db,
+      externalProvider: env.RENGINE_MOCK === '1' ? mockRengineProvider() : undefined,
       legacyAnonymousTestMode: env.LEGACY_ANON_REGRESSION === '1',
       mailSender:
         env.LOCAL_MAIL_URL && env.LOCAL_MAIL_CAPABILITY

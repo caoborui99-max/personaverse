@@ -320,33 +320,37 @@ model AiSafetyEvent {
 }
 
 model User {
-  id              String              @id @default(uuid()) @db.Uuid
-  email           String              @unique @db.VarChar(254)
-  passwordHash    String
-  displayName     String              @default("") @db.VarChar(80)
-  status          String              @default("active")
-  emailVerifiedAt DateTime?           @db.Timestamptz
-  authVersion     Int                 @default(1)
-  createdAt       DateTime            @default(now()) @db.Timestamptz
-  updatedAt       DateTime            @updatedAt @db.Timestamptz
-  sessions        UserSession[]
-  verifications   EmailVerification[]
-  passwordResets  PasswordReset[]
-  chats           ChatSession[]
-  favorites       UserFavorite[]
+  id                   String                    @id @default(uuid()) @db.Uuid
+  email                String                    @unique @db.VarChar(254)
+  passwordHash         String
+  displayName          String                    @default("") @db.VarChar(80)
+  status               String                    @default("active")
+  emailVerifiedAt      DateTime?                 @db.Timestamptz
+  authVersion          Int                       @default(1)
+  createdAt            DateTime                  @default(now()) @db.Timestamptz
+  updatedAt            DateTime                  @updatedAt @db.Timestamptz
+  sessions             UserSession[]
+  verifications        EmailVerification[]
+  passwordResets       PasswordReset[]
+  chats                ChatSession[]
+  externalIdentities   ExternalIdentity[]
+  externalTransactions ExternalAuthTransaction[]
+  favorites            UserFavorite[]
 }
 
 model UserSession {
-  id          String    @id @default(uuid()) @db.Uuid
-  userId      String    @db.Uuid
-  tokenHash   String    @unique @db.Char(64)
-  authVersion Int       @default(1)
-  createdAt   DateTime  @default(now()) @db.Timestamptz
-  expiresAt   DateTime  @db.Timestamptz
-  lastSeenAt  DateTime  @default(now()) @db.Timestamptz
-  revokedAt   DateTime? @db.Timestamptz
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  externalTransactions ExternalAuthTransaction[]
+  id                   String                    @id @default(uuid()) @db.Uuid
+  userId               String                    @db.Uuid
+  tokenHash            String                    @unique @db.Char(64)
+  authVersion          Int                       @default(1)
+  createdAt            DateTime                  @default(now()) @db.Timestamptz
+  expiresAt            DateTime                  @db.Timestamptz
+  lastSeenAt           DateTime                  @default(now()) @db.Timestamptz
+  revokedAt            DateTime?                 @db.Timestamptz
+  user                 User                      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
+  @@unique([userId, id])
   @@index([userId, expiresAt])
   @@index([expiresAt])
 }
@@ -392,4 +396,37 @@ model UserFavorite {
 
   @@id([userId, personaId])
   @@index([userId, createdAt, personaId])
+}
+
+model ExternalIdentity {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  provider    String   @default("rengine")
+  softwareId  String   @db.VarChar(80)
+  subject     String   @db.VarChar(128)
+  subjectUuid String   @db.VarChar(128)
+  status      String   @default("active")
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([provider, softwareId, subject])
+  @@unique([provider, softwareId, subjectUuid])
+  @@unique([userId, provider, softwareId])
+}
+
+model ExternalAuthTransaction {
+  id          String      @id @default(uuid()) @db.Uuid
+  userId      String      @db.Uuid
+  sessionId   String      @db.Uuid
+  authVersion Int
+  softwareId  String      @db.VarChar(80)
+  stateHash   String      @unique @db.Char(64)
+  browserHash String      @db.Char(64)
+  status      String      @default("pending")
+  createdAt   DateTime    @default(now()) @db.Timestamptz
+  expiresAt   DateTime    @db.Timestamptz
+  user        User        @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  session     UserSession @relation(fields: [userId, sessionId], references: [userId, id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([expiresAt, status])
 }
