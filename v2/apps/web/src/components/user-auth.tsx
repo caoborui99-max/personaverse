@@ -1,23 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { safeUserDestination } from '../lib/user-destination';
 import { createUserClient } from '@pv/api-client';
 import { announceUserSessionChange } from './user-boundary';
 const api = createUserClient();
 type Mode = 'login' | 'register' | 'forgot' | 'verify' | 'reset';
-export function safeUserDestination(value: string | null) {
-  if (!value || !value.startsWith('/') || value.startsWith('//') || value.includes('\\'))
-    return '/account';
-  const url = new URL(value, window.location.origin);
-  if (
-    url.origin !== window.location.origin ||
-    /^\/(?:admin|login|register|verify-email|reset-password|forgot-password)(?:\/|$)/.test(
-      url.pathname,
-    )
-  )
-    return '/account';
-  return url.pathname + url.search;
-}
 export function UserAuthForm({ mode }: { mode: Mode }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -72,7 +60,7 @@ export function UserAuthForm({ mode }: { mode: Mode }) {
                 announceUserSessionChange();
                 setPassword('');
                 const next = new URLSearchParams(window.location.search).get('next');
-                window.location.assign(safeUserDestination(next));
+                window.location.assign(safeUserDestination(next, window.location.origin));
               } else if (mode === 'register') {
                 await api.register(email, password, displayName);
                 setPassword('');

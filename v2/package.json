@@ -35,7 +35,8 @@
     "preview:status": "node --import tsx scripts/local-preview.ts status",
     "preview:stop": "node --import tsx scripts/local-preview.ts stop",
     "test:runtime:e2e": "playwright test --config playwright.runtime.config.ts",
-    "preview:verify": "node --import tsx scripts/local-preview.ts verify"
+    "preview:verify": "node --import tsx scripts/local-preview.ts verify",
+    "test:login:e2e": "node --env-file=.env.test.local --import tsx scripts/database-browser.ts --login"
   },
   "devDependencies": {
     "typescript": "5.9.3",

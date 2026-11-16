@@ -14,7 +14,8 @@ const root = new PrismaClient();
 await root.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
 url.searchParams.set('schema', schema);
 const db = new PrismaClient({ datasources: { db: { url: url.toString() } } });
-const users = process.argv.includes('--users');
+const loginOnly = process.argv.includes('--login');
+const users = process.argv.includes('--users') || loginOnly;
 const mailDirectory = resolve('test-results', 'mail-' + randomUUID());
 mkdirSync(mailDirectory, { recursive: true, mode: 0o700 });
 let status = 1;
@@ -35,13 +36,17 @@ try {
       'node_modules/@playwright/test/cli.js',
       'test',
       '--config',
-      users ? 'playwright.users.config.ts' : 'playwright.database.config.ts',
+      loginOnly
+        ? 'playwright.login.config.ts'
+        : users
+          ? 'playwright.users.config.ts'
+          : 'playwright.database.config.ts',
     ],
     {
       env: {
         ...process.env,
         PV_MODE: 'database',
-        PV_RENGINE_MOCK: users ? '1' : '0',
+        PV_RENGINE_MOCK: users && !loginOnly ? '1' : '0',
         PV_LOCAL_MAIL: users ? '1' : '0',
         PV_LOCAL_MAIL_DIR: mailDirectory,
         PV_TEST_MAIL_DIR: mailDirectory,

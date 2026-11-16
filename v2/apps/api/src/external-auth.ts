@@ -24,6 +24,11 @@ export function externalAuthRoutes(
     if (!provider) fail(503, 'EXTERNAL_AUTH_DISABLED', '热土绑定尚未启用。');
     return provider!;
   };
+  // Public capability only: never exposes user identities or credentials.
+  app.get('/api/v1/auth/rengine/capabilities', async () => ({
+    enabled: !!provider,
+    mode: provider ? 'mock' : 'disabled',
+  }));
   app.get('/api/v1/auth/rengine', async (req) => {
     const s = await auth.requireUser(req);
     const identities = await db.externalIdentity.findMany({

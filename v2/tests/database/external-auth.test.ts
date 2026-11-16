@@ -289,3 +289,17 @@ it('expired authorization cannot dispatch provider', async () => {
   expect((await finish(a, t)).statusCode).toBe(409);
   expect(calls).toBe(before);
 });
+
+it('public capability is minimal and reflects disabled-by-default or explicit Mock configuration', async () => {
+  const on = await h.app.inject('/api/v1/auth/rengine/capabilities');
+  expect(on.statusCode).toBe(200);
+  expect(on.json()).toEqual({ enabled: true, mode: 'mock' });
+  const off = await harness({ legacyAnonymousTestMode: false });
+  try {
+    const r = await off.app.inject('/api/v1/auth/rengine/capabilities');
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual({ enabled: false, mode: 'disabled' });
+  } finally {
+    await off.close();
+  }
+});

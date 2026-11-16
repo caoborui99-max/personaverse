@@ -82,3 +82,18 @@ export async function requireUserPage(next = '/account') {
     })
     .parse(await res.json()).user;
 }
+
+// Do not require Strict session cookies on the first cross-site callback GET.
+// This checks availability only; authenticated binding remains a same-origin CSRF POST.
+export async function rengineCallbackEnabled() {
+  try {
+    const res = await apiFetch(base() + '/auth/rengine/capabilities', {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return false;
+    return z.object({ enabled: z.boolean() }).parse(await res.json()).enabled;
+  } catch {
+    return false;
+  }
+}

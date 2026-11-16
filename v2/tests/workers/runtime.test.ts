@@ -75,6 +75,11 @@ it('Web/API binding, static WASM, PG transactions and default-off control are re
   expect(value.database).toEqual({ connected: true, aiDisabled: true });
   expect(value.argon.verified).toBe(true);
   expect((await request('/health')).value.ai).toBe('not-connected');
+  expect((await request('/auth/rengine/capabilities')).value).toEqual({
+    enabled: false,
+    mode: 'disabled',
+  });
+  expect((await fetch(origin + '/auth/rengine/callback', { redirect: 'manual' })).status).toBe(404);
 });
 it('rejects unauthenticated/forged and encoded admin paths without exposing data', async () => {
   for (const path of [
