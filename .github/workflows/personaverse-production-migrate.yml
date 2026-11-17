@@ -1,0 +1,65 @@
+name: PersonaVerse production database migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type MIGRATE_PERSONAVERSE_PRODUCTION to authorize applying reviewed migrations'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: personaverse-production-database-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    if: ${{ inputs.confirmation == 'MIGRATE_PERSONAVERSE_PRODUCTION' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-database
+    defaults:
+      run:
+        working-directory: v2
+        shell: bash
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      CI: 'true'
+    steps:
+      - name: Checkout the selected ref
+        uses: actions/checkout@v4
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '11.25.0'
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Validate target and migration files (no database changes)
+        run: |
+          node --input-type=module <<'NODE'
+          import { existsSync, readdirSync } from 'node:fs';
+          if (!process.env.DATABASE_URL) throw Error('DATABASE_URL secret is missing');
+          const url = new URL(process.env.DATABASE_URL);
+          if (!['postgres:', 'postgresql:'].includes(url.protocol)) throw Error('Not PostgreSQL');
+          if (!url.hostname.endsWith('.neon.tech') || url.hostname.includes('-pooler.')) throw Error('Expected Neon direct endpoint (not pooled)');
+          if (url.pathname !== '/neondb') throw Error('Expected neondb database');
+          if (url.searchParams.get('sslmode') !== 'require') throw Error('TLS sslmode=require required');
+          const root = 'database/migrations';
+          if (!existsSync(root)) throw Error('No migrations directory');
+          const dirs = readdirSync(root, { withFileTypes: true }).filter(x => x.isDirectory());
+          if (!dirs.length || dirs.some(x => !existsSync(`${root}/${x.name}/migration.sql`))) throw Error('Missing reviewed migration SQL');
+          console.log('Neon direct endpoint and migration files verified; credentials not printed.');
+          NODE
+      - name: Show migration status
+        run: pnpm exec prisma migrate status --schema database/schema.prisma
+      - name: Apply checked-in migrations
+        run: pnpm exec prisma migrate deploy --schema database/schema.prisma
+      - name: Verify migration status
+        run: pnpm exec prisma migrate status --schema database/schema.prisma
