@@ -161,7 +161,7 @@ export function registerDatabaseApp(
       status: 'ok',
       mode: 'database',
       database: 'connected',
-      ai: 'not-connected',
+      ai: options.deepseek ? 'deepseek-configured' : 'not-connected',
       auth: 'server-session',
     };
   });

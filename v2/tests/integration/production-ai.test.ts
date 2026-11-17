@@ -42,7 +42,7 @@ it.each(['network', '429', 'json', 'length', 'oversize'])(
         usage: { prompt_tokens: 1, completion_tokens: 1024 },
       });
     });
-    await expect(provider.complete([])).rejects.toThrow();
+    await expect(provider.complete([{ role: 'user', content: 'TEST ONLY' }])).rejects.toThrow();
     expect(calls).toBe(1);
   },
 );

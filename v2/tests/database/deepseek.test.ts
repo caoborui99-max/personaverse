@@ -146,6 +146,26 @@ it('real chat admission persists once, rejects spoofing/concurrency, and retains
         1024,
       ),
     ).rejects.toThrow('OWNER_MISMATCH');
+    // Quota is charged on admission, not on idempotent replay.
+    const quotaBefore = await h.db.userChatDay.findFirstOrThrow({ where: { userId: u.id } });
+    await send(first);
+    expect((await h.db.userChatDay.findFirstOrThrow({ where: { userId: u.id } })).usedTokens).toBe(
+      quotaBefore.usedTokens,
+    );
+    await h.db.aiBudget.updateMany({ data: { limitUnits: 0n } });
+    expect((await send(randomUUID())).statusCode).toBe(429);
+    expect(calls).toBe(1);
+    await h.db.aiBudget.updateMany({ data: { limitUnits: 10000000n } });
+    await h.db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('personaverse.publication_action','unpublish',true)`;
+      await tx.persona.update({ where: { id: p.id }, data: { status: 'draft' } });
+    });
+    expect((await send(randomUUID())).statusCode).toBe(409);
+    expect(calls).toBe(1);
+    await h.db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('personaverse.publication_action','publish',true)`;
+      await tx.persona.update({ where: { id: p.id }, data: { status: 'published' } });
+    });
     broken = true;
     const uncertain = randomUUID();
     expect((await send(uncertain)).json().error.code).toBe('AI_OUTCOME_UNKNOWN');

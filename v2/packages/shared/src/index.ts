@@ -132,7 +132,7 @@ export const AdminPersona = z.object({
 export type AdminPersona = z.infer<typeof AdminPersona>;
 
 export const ChatAllowance = z.object({
-  mode: z.literal('mock'),
+  mode: z.enum(['mock', 'deepseek']),
   day: z.string(),
   timezone: z.literal('Asia/Shanghai'),
   serverNow: z.string().datetime(),
@@ -141,7 +141,7 @@ export const ChatAllowance = z.object({
   remainingMs: z.number().int().nonnegative(),
   dailyTokens: z.number().int(),
   remainingTokens: z.number().int().nonnegative(),
-  tokenAccounting: z.literal('mock-utf8-upper-bound'),
+  tokenAccounting: z.enum(['mock-utf8-upper-bound', 'reserved-utf8-upper-bound']),
   active: z.boolean(),
   canControl: z.boolean(),
   leaseId: z.string().uuid().nullable(),

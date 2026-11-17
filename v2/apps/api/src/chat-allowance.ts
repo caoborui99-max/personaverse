@@ -11,7 +11,7 @@ const DAY = 86400000,
 export const beijingDay = (time: number) => new Date(time + OFFSET).toISOString().slice(0, 10);
 export const nextBeijingDay = (time: number) =>
   Math.floor((time + OFFSET) / DAY) * DAY + DAY - OFFSET;
-export function chatAllowance(clock: () => number = Date.now) {
+export function chatAllowance(clock: () => number = Date.now, mode: 'mock' | 'deepseek' = 'mock') {
   async function day(tx: Tx, userId: string, at: number) {
     return tx.userChatDay.upsert({
       where: { userId_day: { userId, day: beijingDay(at) } },
@@ -71,7 +71,7 @@ export function chatAllowance(clock: () => number = Date.now) {
       d.usedTokens < CHAT_DAY_TOKENS
     );
     return {
-      mode: 'mock' as const,
+      mode,
       day: d.day,
       timezone: 'Asia/Shanghai',
       serverNow: new Date(now).toISOString(),
@@ -80,7 +80,10 @@ export function chatAllowance(clock: () => number = Date.now) {
       remainingMs: CHAT_DAY_MS - d.usedMs,
       dailyTokens: CHAT_DAY_TOKENS,
       remainingTokens: CHAT_DAY_TOKENS - d.usedTokens,
-      tokenAccounting: 'mock-utf8-upper-bound' as const,
+      tokenAccounting:
+        mode === 'deepseek'
+          ? ('reserved-utf8-upper-bound' as const)
+          : ('mock-utf8-upper-bound' as const),
       active,
       canControl: active && c.ownerSessionId === ownerSessionId,
       leaseId: active ? c.leaseId : null,
@@ -146,7 +149,7 @@ export function chatAllowance(clock: () => number = Date.now) {
     estimatedTokens: number,
   ) {
     if (!Number.isSafeInteger(estimatedTokens) || estimatedTokens < 1)
-      fail(400, 'INVALID_TOKEN_ESTIMATE', '模拟Token估算无效。');
+      fail(400, 'INVALID_TOKEN_ESTIMATE', 'Token估算无效。');
     const s = await status(tx, userId, ownerSessionId);
     if (estimatedTokens > s.remainingTokens)
       fail(429, 'PERSONAL_TOKEN_LIMIT', '当前上下文超过今日剩余Token保护额度。');

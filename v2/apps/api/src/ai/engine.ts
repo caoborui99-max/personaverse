@@ -248,13 +248,10 @@ export class BudgetEngine {
             );
         }
         if (actor.kind === 'user')
-          await chatAllowance(this.options.clock).consume(
-            tx,
-            actor.id,
-            actor.sessionId!,
-            sessionId,
-            tokens + maxOutputTokens,
-          );
+          await chatAllowance(
+            this.options.clock,
+            this.options.deepseek ? 'deepseek' : 'mock',
+          ).consume(tx, actor.id, actor.sessionId!, sessionId, tokens + maxOutputTokens);
         const r = await tx.chatRequest.create({
           data: {
             sessionId,
@@ -507,6 +504,11 @@ export class BudgetEngine {
               content: result.content,
             },
           ],
+        });
+      if (!retained.deletedAt)
+        await tx.chatSession.update({
+          where: { id: r.sessionId },
+          data: { updatedAt: this.now() },
         });
       await this.event(
         tx,

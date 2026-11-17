@@ -51,7 +51,7 @@ export function userChatRoutes(
   engine?: BudgetEngine,
   requireRealChat = false,
 ) {
-  const allowance = chatAllowance(clock);
+  const allowance = chatAllowance(clock, engine ? 'deepseek' : 'mock');
   const base = '/api/v1/me';
   async function owned(tx: Tx, userId: string, id: string) {
     await tx.$queryRaw`SELECT id FROM "ChatSession" WHERE id=${id}::uuid AND "userId"=${userId}::uuid FOR UPDATE`;
@@ -268,7 +268,10 @@ export function userChatRoutes(
             : 'AI_REQUEST_' + result.status.toUpperCase(),
           '请求尚未完成或结果待核对，请勿更换消息ID重复发送。',
         );
-      return db.$transaction((tx) => dto(tx, s.userId, id));
+      return db.$transaction(async (tx) => {
+        await auth.lockCurrent(tx, s);
+        return dto(tx, s.userId, id);
+      });
     }
     if (requireRealChat) fail(503, 'AI_DISABLED', 'AI服务尚未配置。');
     if (body.content === '/fail-once') {
