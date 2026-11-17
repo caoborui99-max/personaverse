@@ -70,6 +70,7 @@ export async function harness(
   }
   return {
     app,
+    schema,
     db,
     admin,
     get password() {

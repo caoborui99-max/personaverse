@@ -8,7 +8,12 @@ import { get } from 'node:https';
 import { localTls } from './local-tls.ts';
 import { passwordHash } from '../../apps/api/src/auth.ts';
 export async function workersHarness(
-  options: { legacyAnonymousTestMode?: boolean; externalMock?: boolean; https?: boolean } = {},
+  options: {
+    legacyAnonymousTestMode?: boolean;
+    externalMock?: boolean;
+    https?: boolean;
+    closedMockPreview?: boolean;
+  } = {},
 ) {
   const tls = options.https ? localTls() : undefined;
   const origin = `${tls ? 'https' : 'http'}://127.0.0.1:4320`;
@@ -80,6 +85,7 @@ export async function workersHarness(
       ...process.env,
       DATABASE_URL: url.toString(),
       PV_LOCAL_MAIL_DIR: mailDirectory,
+      PV_CLOSED_MOCK_PREVIEW: options.closedMockPreview ? '1' : '0',
       PV_RENGINE_MOCK: options.externalMock ? '1' : '0',
       PV_LEGACY_ANON_REGRESSION: options.legacyAnonymousTestMode === false ? '0' : '1',
       PV_CF_HTTPS: tls ? '1' : '0',

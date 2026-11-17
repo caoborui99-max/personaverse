@@ -10,6 +10,7 @@ const apiWorker = {
     request: Request,
     env: {
       TEST_DATABASE_URL: string;
+      CLOSED_MOCK_PREVIEW?: string;
       WEB_ORIGIN: string;
       LEGACY_ANON_REGRESSION?: string;
       RENGINE_MOCK?: string;
@@ -87,6 +88,7 @@ const apiWorker = {
     const app = createFetchApp();
     registerDatabaseApp(app.registration(), {
       db,
+      closedMockPreview: env.CLOSED_MOCK_PREVIEW === '1',
       externalProvider: env.RENGINE_MOCK === '1' ? mockRengineProvider() : undefined,
       legacyAnonymousTestMode: env.LEGACY_ANON_REGRESSION === '1',
       mailSender:

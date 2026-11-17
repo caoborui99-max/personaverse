@@ -9,7 +9,20 @@ async function apiFetch(url: string, options: RequestInit) {
     const { getCloudflareContext } = await import('@opennextjs/cloudflare');
     const env = getCloudflareContext().env as unknown as {
       API: { fetch: (r: Request) => Promise<Response> };
+      MOCK_PREVIEW?: string;
+      WEB_ORIGIN: string;
+      BRIDGE_SECRET: string;
     };
+    if (env.MOCK_PREVIEW === 'closed') {
+      const { signBridge } = await import('../../../../packages/api-client/src/private-bridge.ts');
+      const target = new URL(url);
+      const origin = new URL(env.WEB_ORIGIN);
+      target.protocol = origin.protocol;
+      target.host = origin.host;
+      return env.API.fetch(
+        await signBridge(new Request(target, options), env.BRIDGE_SECRET, 'ssr'),
+      );
+    }
     return env.API.fetch(new Request(url, options));
   }
   return fetch(url, options);

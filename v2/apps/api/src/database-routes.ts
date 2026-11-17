@@ -20,6 +20,7 @@ export function registerDatabaseApp(
     db?: PrismaClient;
     clock?: () => number;
     fakeBudgetTestMode?: boolean;
+    closedMockPreview?: boolean;
     legacyAnonymousTestMode?: boolean;
     mailSender?: MailSender;
     externalProvider?: RengineProvider;
@@ -121,6 +122,29 @@ export function registerDatabaseApp(
     )
       fail(403, 'ORIGIN_REJECTED', '请求来源不可信。');
     const path = req.url.split('?')[0] ?? '';
+    if (options.closedMockPreview) {
+      if (
+        [
+          '/api/v1/auth/register',
+          '/api/v1/auth/verify',
+          '/api/v1/auth/resend-verification',
+          '/api/v1/auth/forgot-password',
+          '/api/v1/auth/reset-password',
+        ].includes(path)
+      )
+        fail(503, 'CLOSED_TEST_ONLY', '封闭测试暂未开放邮件相关功能。');
+      if (path.startsWith('/api/v1/ai/') || path.startsWith('/api/v1/admin/ai/'))
+        fail(503, 'AI_DISABLED', '真实模型及费用实验均未启用。');
+      const control = await db.aiControl.findUnique({ where: { id: 'global' } });
+      if (
+        !control ||
+        control.fakeEnabled ||
+        control.maxRequestUnits !== 0n ||
+        (await db.aiBudget.count({ where: { limitUnits: { not: 0n } } }))
+      )
+        fail(503, 'PREVIEW_BUDGET_NOT_ZERO', '测试环境必须关闭模型并保持零费用预算。');
+    }
+
     if (
       (path === '/api/v1/admin' || path.startsWith('/api/v1/admin/')) &&
       !['/api/v1/admin/auth/login', '/api/v1/admin/auth/csrf'].includes(path)

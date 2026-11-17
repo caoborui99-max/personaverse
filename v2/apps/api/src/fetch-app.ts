@@ -31,7 +31,7 @@ class Reply {
     });
   }
 }
-export function createFetchApp() {
+export function createFetchApp(options: { clientIp?: string } = {}) {
   const routes: { method: string; parts: string[]; handler: Handler }[] = [];
   const hooks: Handler[] = [];
   const closing: (() => Promise<void>)[] = [];
@@ -85,7 +85,7 @@ export function createFetchApp() {
         query: Object.create(null),
         body: undefined,
         // No arbitrary forwarding header is trusted. Service Binding identity is not a public IP.
-        ip: 'local-service-binding',
+        ip: options.clientIp ?? 'local-service-binding',
       } as unknown as FastifyRequest;
       const respond = reply as unknown as FastifyReply;
       try {
