@@ -1,3 +1,4 @@
+import { BudgetEngine, AiError } from './ai/engine.ts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
@@ -47,6 +48,8 @@ export function userChatRoutes(
   db: PrismaClient,
   auth: ReturnType<typeof userAuthService>,
   clock: () => number = Date.now,
+  engine?: BudgetEngine,
+  requireRealChat = false,
 ) {
   const allowance = chatAllowance(clock);
   const base = '/api/v1/me';
@@ -77,7 +80,7 @@ export function userChatRoutes(
       personaSlug: info.slug,
       personaName: info.name,
       coreVersionId: c.coreVersionId,
-      mode: 'mock' as const,
+      mode: engine ? ('deepseek' as const) : ('mock' as const),
       canSend: c.status === 'active' && c.persona.status === 'published' && !c.persona.isTest,
       messages: selected.map((m) => ({
         id: m.id,
@@ -239,6 +242,35 @@ export function userChatRoutes(
     const s = await auth.requireUser(req, true);
     const id = idOf(req),
       body = messageInput.parse(req.body);
+    if (engine) {
+      let result;
+      try {
+        result = await engine.runDeepSeek(
+          { kind: 'user', id: s.userId, sessionId: s.id, authVersion: s.authVersion, ip: req.ip },
+          id,
+          body.clientMessageId,
+          body.content,
+        );
+      } catch (e) {
+        if (e instanceof AiError)
+          fail(
+            e.code.includes('LIMIT') || e.code.includes('EXHAUSTED') ? 429 : 409,
+            e.code,
+            'AI请求被安全策略拒绝，请检查额度或稍后查看记录。',
+          );
+        throw e;
+      }
+      if (result.status !== 'succeeded')
+        fail(
+          409,
+          result.status === 'unknown'
+            ? 'AI_OUTCOME_UNKNOWN'
+            : 'AI_REQUEST_' + result.status.toUpperCase(),
+          '请求尚未完成或结果待核对，请勿更换消息ID重复发送。',
+        );
+      return db.$transaction((tx) => dto(tx, s.userId, id));
+    }
+    if (requireRealChat) fail(503, 'AI_DISABLED', 'AI服务尚未配置。');
     if (body.content === '/fail-once') {
       const c =
         (await db.chatSession.findFirst({ where: { id, userId: s.userId, deletedAt: null } })) ??

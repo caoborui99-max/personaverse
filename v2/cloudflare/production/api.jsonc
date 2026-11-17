@@ -1,0 +1,31 @@
+{
+  "name": "pv-api-production",
+  "main": "api.ts",
+  "compatibility_date": "2026-11-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "alias": {
+    "@prisma/client": "../generated/client/client.ts",
+    "@node-rs/argon2": "../argon-rpc.ts",
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PASSWORD_HASHERS",
+        "class_name": "PasswordHasher",
+        "script_name": "pv-password-production",
+      },
+    ],
+  },
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "REPLACE_HYPERDRIVE_ID" }],
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "vars": {
+    "AI_ENABLED": "false",
+    "MAIL_FROM": "REPLACE_VERIFIED_SENDER",
+    "WEB_ORIGIN": "https://pv-web-production.REPLACE_ACCOUNT.workers.dev",
+    "PRODUCTION_DATABASE": "REPLACE_DATABASE",
+    "PRODUCTION_ROLE": "REPLACE_APP_ROLE",
+    "HYPERDRIVE_CACHE_DISABLED": "false",
+  },
+}

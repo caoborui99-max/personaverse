@@ -124,7 +124,7 @@ export function ChatAllowancePanel({
           </p>
           <p>
             Token保护额度：{value.remainingTokens.toLocaleString()} /{' '}
-            {value.dailyTokens.toLocaleString()}（Mock保守估算）
+            {value.dailyTokens.toLocaleString()}（保守上界，非实际账单）
           </p>
           <p>
             {!value.canSend

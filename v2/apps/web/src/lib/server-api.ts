@@ -10,10 +10,11 @@ async function apiFetch(url: string, options: RequestInit) {
     const env = getCloudflareContext().env as unknown as {
       API: { fetch: (r: Request) => Promise<Response> };
       MOCK_PREVIEW?: string;
+      PRODUCTION_API?: string;
       WEB_ORIGIN: string;
       BRIDGE_SECRET: string;
     };
-    if (env.MOCK_PREVIEW === 'closed') {
+    if (env.MOCK_PREVIEW === 'closed' || env.PRODUCTION_API === 'enabled') {
       const { signBridge } = await import('../../../../packages/api-client/src/private-bridge.ts');
       const target = new URL(url);
       const origin = new URL(env.WEB_ORIGIN);

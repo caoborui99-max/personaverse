@@ -1,5 +1,8 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, createHmac } from 'node:crypto';
+import type { DeepSeekProvider } from './deepseek.ts';
+import { USER_SESSION_IDLE_MS } from '../user-auth.ts';
+import { chatAllowance } from '../chat-allowance.ts';
 import { FakeProvider, assertFake, NoCharge, UnknownOutcome } from './fake-provider.ts';
 export class AiError extends Error {
   constructor(public code: string) {
@@ -31,11 +34,22 @@ const include = {
   session: { include: { persona: true, coreVersion: true } },
 } as const;
 type Tx = Prisma.TransactionClient;
-export type Actor = { kind: 'visitor' | 'admin'; id: string; ip: string };
+export type Actor = {
+  kind: 'visitor' | 'admin' | 'user';
+  id: string;
+  ip: string;
+  sessionId?: string;
+  authVersion?: number;
+};
 export class BudgetEngine {
   constructor(
     readonly db: PrismaClient,
-    readonly options: { allowFake?: boolean; clock?: () => number; timeoutMs?: number } = {},
+    readonly options: {
+      allowFake?: boolean;
+      clock?: () => number;
+      timeoutMs?: number;
+      deepseek?: DeepSeekProvider;
+    } = {},
   ) {}
   private now() {
     return new Date(this.options.clock?.() ?? Date.now());
@@ -45,23 +59,54 @@ export class BudgetEngine {
     return (await tx.aiControl.findUnique({ where: { id: 'global' } })) ?? reject('AI_DISABLED');
   }
   private enabled(control: { fakeEnabled: boolean; circuitOpen: boolean }) {
-    if (!this.options.allowFake || !control.fakeEnabled || control.circuitOpen)
+    if (
+      (!this.options.deepseek && (!this.options.allowFake || !control.fakeEnabled)) ||
+      control.circuitOpen
+    )
       reject('AI_DISABLED');
   }
   private async event(tx: Tx, requestId: string, code: string) {
     await tx.aiSafetyEvent.create({ data: { requestId, code, createdAt: this.now() } });
   }
   private async session(tx: Tx, id: string, actor: Actor) {
+    // Match native user routes: global control -> user -> chat.
+    if (actor.kind === 'user')
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id=${actor.id}::uuid FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM "ChatSession" WHERE id=${id}::uuid FOR UPDATE`;
     const s =
       (await tx.chatSession.findUnique({
         where: { id },
         include: { persona: true, coreVersion: true },
       })) ?? reject('SESSION_NOT_FOUND');
-    if ((actor.kind === 'admin' ? s.adminId : s.visitorId) !== actor.id) reject('OWNER_MISMATCH');
+    if (
+      (actor.kind === 'user' ? s.userId : actor.kind === 'admin' ? s.adminId : s.visitorId) !==
+      actor.id
+    )
+      reject('OWNER_MISMATCH');
     if (actor.kind === 'admin') {
       const a = await tx.adminAccount.findUnique({ where: { id: actor.id } });
       if (a?.status !== 'active' || a.role !== 'owner') reject('OWNER_MISMATCH');
+    } else if (actor.kind === 'user') {
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id=${actor.id}::uuid FOR UPDATE`;
+      const u = await tx.user.findUnique({ where: { id: actor.id } });
+      if (actor.sessionId)
+        await tx.$queryRaw`SELECT id FROM "UserSession" WHERE id=${actor.sessionId}::uuid FOR SHARE`;
+      const login = actor.sessionId
+        ? await tx.userSession.findUnique({ where: { id: actor.sessionId } })
+        : null;
+      if (
+        !u ||
+        u.status !== 'active' ||
+        !u.emailVerifiedAt ||
+        !login ||
+        login.userId !== u.id ||
+        login.revokedAt ||
+        login.expiresAt <= this.now() ||
+        login.lastSeenAt.getTime() + USER_SESSION_IDLE_MS <= this.now().getTime() ||
+        login.authVersion !== u.authVersion ||
+        actor.authVersion !== u.authVersion
+      )
+        reject('OWNER_MISMATCH');
     } else {
       const v = await tx.visitorSession.findUnique({ where: { id: actor.id } });
       if (!v || v.revokedAt || v.expiresAt <= this.now()) reject('OWNER_MISMATCH');
@@ -113,6 +158,8 @@ export class BudgetEngine {
           if (previous.fingerprint !== fingerprint) reject('IDEMPOTENCY_CONFLICT');
           return previous;
         }
+        if (await tx.chatMessage.findFirst({ where: { sessionId, clientMessageId: key } }))
+          reject('IDEMPOTENCY_CONFLICT');
         this.enabled(control);
         await this.available(tx, s);
         if (
@@ -124,7 +171,12 @@ export class BudgetEngine {
         const price =
           (await tx.aiPrice.findUnique({ where: { version: control.priceVersion } })) ??
           reject('PRICE_MISSING');
-        if (!price.simulated) reject('REAL_PROVIDER_DISABLED');
+        if (
+          this.options.deepseek
+            ? price.simulated || price.version !== this.options.deepseek.priceVersion
+            : !price.simulated
+        )
+          reject('PRICE_PROVIDER_MISMATCH');
         const history = await tx.chatMessage.findMany({
           where: { sessionId },
           orderBy: { sequence: 'asc' },
@@ -195,6 +247,14 @@ export class BudgetEngine {
               new Date(this.now().getTime() + 2 * 86400000),
             );
         }
+        if (actor.kind === 'user')
+          await chatAllowance(this.options.clock).consume(
+            tx,
+            actor.id,
+            actor.sessionId!,
+            sessionId,
+            tokens + maxOutputTokens,
+          );
         const r = await tx.chatRequest.create({
           data: {
             sessionId,
@@ -223,12 +283,17 @@ export class BudgetEngine {
           data: {
             requestId: r.id,
             kind: 'reserve',
+            simulated: !this.options.deepseek,
             units: cost,
             currency: price.currency,
             evidence: digest(r.id + ':reserve'),
           },
         });
-        await this.event(tx, r.id, 'RESERVED_SIMULATED');
+        await this.event(
+          tx,
+          r.id,
+          this.options.deepseek ? 'RESERVED_DEEPSEEK' : 'RESERVED_SIMULATED',
+        );
         return tx.chatRequest.update({
           where: { id: r.id },
           data: {
@@ -270,13 +335,20 @@ export class BudgetEngine {
       data: { status: kind === 'settle' ? 'settled' : 'released' },
     });
     await tx.aiLedgerEntry.create({
-      data: { requestId: id, kind, units: amount, currency: reservation.price.currency, evidence },
+      data: {
+        requestId: id,
+        kind,
+        units: amount,
+        currency: reservation.price.currency,
+        evidence,
+        simulated: reservation.price.simulated,
+      },
     });
     await tx.aiUsageRecord.create({
       data: {
         requestId: id,
         sessionId: r.sessionId,
-        provider: 'deterministic-fake',
+        provider: reservation.price.simulated ? 'deterministic-fake' : 'deepseek',
         model: reservation.priceVersion,
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
@@ -370,14 +442,20 @@ export class BudgetEngine {
           granted: false,
         };
       }
-      await this.event(tx, id, 'DISPATCH_GRANTED_SIMULATED');
+      await this.event(
+        tx,
+        id,
+        this.options.deepseek ? 'DISPATCH_GRANTED_DEEPSEEK' : 'DISPATCH_GRANTED_SIMULATED',
+      );
       return {
         ...(await tx.chatRequest.update({
           where: { id },
           data: {
             status: 'running',
             fencingToken: { increment: 1 },
-            leaseExpiresAt: new Date(this.now().getTime() + 5000),
+            leaseExpiresAt: new Date(
+              this.now().getTime() + (this.options.deepseek ? 120000 : 5000),
+            ),
             updatedAt: this.now(),
           },
         })),
@@ -430,12 +508,18 @@ export class BudgetEngine {
             },
           ],
         });
-      await this.event(tx, id, 'SUCCEEDED_SIMULATED');
+      await this.event(
+        tx,
+        id,
+        r.reservation!.price.simulated ? 'SUCCEEDED_SIMULATED' : 'SUCCEEDED_DEEPSEEK',
+      );
       return tx.chatRequest.update({
         where: { id },
         data: {
           status: 'succeeded',
-          response: retained.deletedAt ? Prisma.DbNull : { ...result, simulated: true },
+          response: retained.deletedAt
+            ? Prisma.DbNull
+            : { ...result, simulated: r.reservation!.price.simulated },
           updatedAt: this.now(),
         },
       });
@@ -506,6 +590,38 @@ export class BudgetEngine {
       if (timer) clearTimeout(timer);
     }
   }
+  async runDeepSeek(actor: Actor, sessionId: string, key: string, content: string) {
+    const provider = this.options.deepseek!;
+    if (!provider || actor.kind !== 'user') reject('AI_DISABLED');
+    await this.recover();
+    const r = await this.reserve(actor, sessionId, key, content, provider.maxOutputTokens);
+    if (r.status !== 'reserved') return r;
+    const started = await this.dispatch(actor, r.id);
+    if (!started.granted || started.status !== 'running') return started;
+    try {
+      const context = await this.db.chatSession.findUniqueOrThrow({
+        where: { id: sessionId },
+        include: { coreVersion: true },
+      });
+      if (context.deletedAt) throw new UnknownOutcome('DELETED_AFTER_ADMISSION');
+      const history = await this.db.chatMessage.findMany({
+        where: { sessionId, sequence: { lte: r.contextSequence } },
+        orderBy: { sequence: 'asc' },
+      });
+      const result = await provider.complete([
+        { role: 'system', content: context.coreVersion.coreText },
+        ...(context.coreVersion.openingMessage
+          ? [{ role: 'assistant' as const, content: context.coreVersion.openingMessage }]
+          : []),
+        ...history.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+        { role: 'user', content },
+      ]);
+      return await this.finish(started.id, started.fencingToken, result);
+    } catch {
+      // Even malformed responses and persistence failures may have incurred a charge.
+      return this.failure(started.id, started.fencingToken, false);
+    }
+  }
   async recover() {
     return this.db.$transaction(async (tx) => {
       await this.lock(tx);
@@ -561,7 +677,7 @@ export class BudgetEngine {
         where: { id },
         data: {
           status: decision === 'settle' ? 'succeeded' : 'failed',
-          errorCode: 'RECONCILED_SIMULATED',
+          errorCode: 'RECONCILED_WITH_EVIDENCE',
           updatedAt: this.now(),
         },
       });
@@ -596,6 +712,7 @@ export class BudgetEngine {
         data: {
           requestId: id,
           kind: 'adjust',
+          simulated: r.reservation!.price.simulated,
           units: delta,
           currency: r.reservation!.price.currency,
           evidence,

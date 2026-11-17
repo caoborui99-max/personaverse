@@ -9,6 +9,7 @@ export const UserProfile = z.object({
 export type UserProfile = z.infer<typeof UserProfile>;
 const UserSession = z.object({ user: UserProfile, csrfToken: z.string() });
 export const PersonalConversation = ChatSession.extend({
+  mode: z.enum(['mock', 'deepseek']),
   personaName: z.string().optional(),
   canSend: z.boolean().optional(),
   pagination: z
@@ -48,7 +49,7 @@ export function createUserClient(base = '/api/v1') {
       method,
       credentials: 'same-origin',
       cache: 'no-store',
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(path.endsWith('/messages') ? 75000 : 20000),
       headers: {
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
         ...(csrf ? { 'x-csrf-token': csrf } : {}),

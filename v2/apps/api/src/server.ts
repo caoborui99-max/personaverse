@@ -1,3 +1,4 @@
+import { DeepSeekProvider } from './ai/deepseek.ts';
 import { mockRengineProvider } from './auth-providers/rengine.ts';
 import { localFileMail } from './node-local-mail.ts';
 import { buildApp } from './app.ts';
@@ -12,6 +13,11 @@ const app =
   process.env.PV_MODE === 'mock-regression'
     ? buildApp({ origin: process.env.WEB_ORIGIN ?? 'http://127.0.0.1:4310' })
     : buildDatabaseApp({
+        deepseek:
+          process.env.PV_AI_ENABLED === '1' && process.env.DEEPSEEK_API_KEY
+            ? new DeepSeekProvider(process.env.DEEPSEEK_API_KEY)
+            : undefined,
+        requireRealChat: process.env.APP_ENV === 'production',
         externalProvider:
           process.env.APP_ENV === 'test' && process.env.PV_RENGINE_MOCK === '1'
             ? mockRengineProvider()

@@ -1,0 +1,15 @@
+{
+  "name": "pv-web-production",
+  "main": "web.ts",
+  "compatibility_date": "2026-11-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": {
+    "PV_WORKERS_ADAPTER": "opennext",
+    "PRODUCTION_API": "enabled",
+    "WEB_ORIGIN": "https://pv-web-production.REPLACE_ACCOUNT.workers.dev",
+  },
+  "assets": { "directory": "../../apps/web/.open-next/assets", "binding": "ASSETS" },
+  "services": [{ "binding": "API", "service": "pv-api-production" }],
+}

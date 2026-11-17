@@ -1,3 +1,5 @@
+import { BudgetEngine } from './ai/engine.ts';
+import type { DeepSeekProvider } from './ai/deepseek.ts';
 import { externalAuthRoutes } from './external-auth.ts';
 import type { RengineProvider } from './auth-providers/rengine.ts';
 import { userAuthService } from './user-auth.ts';
@@ -20,6 +22,8 @@ export function registerDatabaseApp(
     db?: PrismaClient;
     clock?: () => number;
     fakeBudgetTestMode?: boolean;
+    deepseek?: DeepSeekProvider;
+    requireRealChat?: boolean;
     closedMockPreview?: boolean;
     legacyAnonymousTestMode?: boolean;
     mailSender?: MailSender;
@@ -165,7 +169,16 @@ export function registerDatabaseApp(
   personaRoutes(app, db, auth);
   users.routes(app);
   externalAuthRoutes(app, db, users, config, options.externalProvider, options.clock);
-  userChatRoutes(app, db, users, options.clock);
+  userChatRoutes(
+    app,
+    db,
+    users,
+    options.clock,
+    options.deepseek
+      ? new BudgetEngine(db, { deepseek: options.deepseek, clock: options.clock })
+      : undefined,
+    options.requireRealChat,
+  );
   chatRoutes(
     app,
     db,

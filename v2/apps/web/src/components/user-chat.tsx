@@ -254,7 +254,9 @@ export function PersonalChat({
               <p>
                 聊天会保存在你的账户中。
                 <br />
-                当前为模拟回复，真实 AI 尚未接入。
+                {session?.mode === 'deepseek'
+                  ? 'DeepSeek AI 回复，请核实重要信息。'
+                  : '当前为模拟回复，真实 AI 尚未接入。'}
               </p>
             </div>
           )}
