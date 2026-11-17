@@ -86,6 +86,9 @@ afterAll(async () => {
 it('HTTPS certificate validation, SSR and Owner native PHC login use a trusted isolated CA', async () => {
   const html = await owner.content();
   expect(html).toContain('PersonaVerse');
+  await owner.goto('/demo');
+  await ui(owner.getByRole('heading', { name: '先体验一段预置演示。' })).toBeVisible();
+  await ui(owner.getByRole('textbox')).toHaveCount(0);
   await owner.goto('/admin/login');
   await owner.getByLabel('管理员邮箱').fill(h.email);
   await owner.getByLabel('密码', { exact: true }).fill(h.password);
@@ -225,14 +228,18 @@ it('HTTPS browser enforces CSRF, disabled external auth, identity isolation and 
   );
   await first.goto('https://attacker.invalid/test');
   const [cross] = await Promise.all([
-    first.waitForResponse(h.origin + '/api/v1/auth/session'),
+    first.waitForResponse(
+      (r) => r.url() === h.origin + '/api/v1/auth/session' && r.request().isNavigationRequest(),
+    ),
     first.getByRole('link', { name: 'Cross-site read' }).click(),
   ]);
   expect(cross.status()).toBe(401);
   expect((await cross.request().allHeaders()).cookie ?? '').not.toContain('__Host-pv_v2_user=');
   await first.goto('https://attacker.invalid/test');
   const [attack] = await Promise.all([
-    first.waitForResponse(h.origin + '/api/v1/auth/logout'),
+    first.waitForResponse(
+      (r) => r.url() === h.origin + '/api/v1/auth/logout' && r.request().isNavigationRequest(),
+    ),
     first.getByRole('button', { name: 'Attack logout' }).click(),
   ]);
   expect(attack.status()).toBe(403);

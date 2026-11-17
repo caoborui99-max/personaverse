@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { fail } from './errors.ts';
 import type { userAuthService } from './user-auth.ts';
 import { resourceGate } from './ai/resources.ts';
+import { chatAllowance, activityFingerprint } from './chat-allowance.ts';
 type Tx = Prisma.TransactionClient;
 const pageInput = z
   .object({
@@ -45,7 +46,9 @@ export function userChatRoutes(
   app: FastifyInstance,
   db: PrismaClient,
   auth: ReturnType<typeof userAuthService>,
+  clock: () => number = Date.now,
 ) {
+  const allowance = chatAllowance(clock);
   const base = '/api/v1/me';
   async function owned(tx: Tx, userId: string, id: string) {
     await tx.$queryRaw`SELECT id FROM "ChatSession" WHERE id=${id}::uuid AND "userId"=${userId}::uuid FOR UPDATE`;
@@ -126,6 +129,49 @@ export function userChatRoutes(
       };
     });
   });
+  app.get(base + '/chat-allowance', async (req) => {
+    const s = await auth.requireUser(req);
+    return db.$transaction(async (tx) => {
+      await auth.lockCurrent(tx, s);
+      return allowance.status(tx, s.userId, s.id);
+    });
+  });
+  app.post(base + '/chats/:id/activity', async (req) => {
+    const s = await auth.requireUser(req, true),
+      id = idOf(req);
+    const body = z
+      .object({
+        eventId: z.string().uuid(),
+        action: z.enum(['start', 'activity', 'heartbeat', 'pause']),
+        leaseId: z.string().uuid().optional(),
+      })
+      .strict()
+      .parse(req.body);
+    return db.$transaction(async (tx) => {
+      await auth.lockCurrent(tx, s);
+      const c = await owned(tx, s.userId, id);
+      const fingerprint = activityFingerprint([s.id, id, body.action, body.leaseId]);
+      const prior = await tx.chatActivityEvent.findUnique({
+        where: { userId_eventId: { userId: s.userId, eventId: body.eventId } },
+      });
+      if (prior) {
+        if (prior.fingerprint !== fingerprint)
+          fail(409, 'IDEMPOTENCY_CONFLICT', '活动请求ID已用于其他操作。');
+        return prior.response;
+      }
+      if (
+        body.action !== 'pause' &&
+        (c.status !== 'active' || c.persona.status !== 'published' || c.persona.isTest)
+      )
+        fail(409, 'PERSONA_UNAVAILABLE', '会话已关闭或人格已下架。');
+      await resourceGate(tx, 'user:' + s.userId, req.ip, 'message', false);
+      const response = await allowance.activity(tx, s.userId, s.id, id, body.action, body.leaseId);
+      await tx.chatActivityEvent.create({
+        data: { userId: s.userId, eventId: body.eventId, fingerprint, response },
+      });
+      return response;
+    });
+  });
   app.post(base + '/chats', async (req) => {
     const s = await auth.requireUser(req, true);
     const body = z
@@ -204,6 +250,7 @@ export function userChatRoutes(
       if (created.length) fail(503, 'MOCK_TEMPORARY_FAILURE', '模拟请求失败，可以重试。', true);
     }
     return db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "AiControl" WHERE id='global' FOR UPDATE`;
       await auth.lockCurrent(tx, s);
       const c = await owned(tx, s.userId, id);
       if (c.status !== 'active') fail(409, 'CHAT_CLOSED', '会话已关闭。');
@@ -226,6 +273,8 @@ export function userChatRoutes(
       )
         fail(409, 'SESSION_BUSY', '会话有待处理请求。');
       await resourceGate(tx, 'user:' + s.userId, req.ip, 'message', false);
+      const control = await tx.aiControl.findUniqueOrThrow({ where: { id: 'global' } });
+      if (control.circuitOpen) fail(503, 'AI_CIRCUIT_OPEN', '全站费用安全熔断已开启。');
       const last = await tx.chatMessage.aggregate({
         where: { sessionId: id },
         _max: { sequence: true },
@@ -233,6 +282,26 @@ export function userChatRoutes(
       });
       if (last._count >= 1000) fail(429, 'HISTORY_LIMIT', '当前会话已达安全上限，请新建会话。');
       const sequence = last._max.sequence ?? 0;
+      const core = await tx.personaCoreVersion.findUniqueOrThrow({
+        where: { id: c.coreVersionId },
+      });
+      const history = await tx.chatMessage.findMany({
+        where: { sessionId: id },
+        select: { content: true },
+      });
+      const reply = '模拟回复 · 尚未接入真实 AI。本条仅验证个人记录持久化。';
+      const tokenEstimate =
+        Buffer.byteLength(
+          core.coreText +
+            core.openingMessage +
+            history.map((m) => m.content).join('') +
+            body.content +
+            reply,
+          'utf8',
+        ) +
+        128 +
+        (history.length + 2) * 32;
+      await allowance.consume(tx, s.userId, s.id, id, tokenEstimate);
       await tx.chatMessage.createMany({
         data: [
           {
@@ -247,7 +316,7 @@ export function userChatRoutes(
             sequence: sequence + 2,
             clientMessageId: body.clientMessageId,
             role: 'assistant',
-            content: '模拟回复 · 尚未接入真实 AI。本条仅验证个人记录持久化。',
+            content: reply,
           },
         ],
       });

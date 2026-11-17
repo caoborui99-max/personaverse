@@ -130,3 +130,22 @@ export const AdminPersona = z.object({
     .default([]),
 });
 export type AdminPersona = z.infer<typeof AdminPersona>;
+
+export const ChatAllowance = z.object({
+  mode: z.literal('mock'),
+  day: z.string(),
+  timezone: z.literal('Asia/Shanghai'),
+  serverNow: z.string().datetime(),
+  resetsAt: z.string().datetime(),
+  dailyMs: z.number().int(),
+  remainingMs: z.number().int().nonnegative(),
+  dailyTokens: z.number().int(),
+  remainingTokens: z.number().int().nonnegative(),
+  tokenAccounting: z.literal('mock-utf8-upper-bound'),
+  active: z.boolean(),
+  canControl: z.boolean(),
+  leaseId: z.string().uuid().nullable(),
+  chatId: z.string().uuid().nullable(),
+  canSend: z.boolean(),
+});
+export type ChatAllowance = z.infer<typeof ChatAllowance>;

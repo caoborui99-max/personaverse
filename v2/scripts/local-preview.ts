@@ -182,7 +182,7 @@ if (action === 'prepare') {
   }
   save(s);
   console.log(
-    'Prepared isolated preview with migrations 0001–0008. Random TEST ONLY credentials in ' +
+    'Prepared isolated preview with migrations 0001–0009. Random TEST ONLY credentials in ' +
       statePath,
   );
 } else if (action === 'start') {
@@ -231,7 +231,7 @@ if (action === 'prepare') {
       }[]
     >`SELECT migration_name,checksum,finished_at,rolled_back_at FROM "_prisma_migrations" ORDER BY migration_name`;
     if (
-      migrations.length !== 8 ||
+      migrations.length !== 9 ||
       migrations.some(
         (m) =>
           !m.finished_at ||

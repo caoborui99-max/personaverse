@@ -141,7 +141,7 @@ export function registerDatabaseApp(
   personaRoutes(app, db, auth);
   users.routes(app);
   externalAuthRoutes(app, db, users, config, options.externalProvider, options.clock);
-  userChatRoutes(app, db, users);
+  userChatRoutes(app, db, users, options.clock);
   chatRoutes(
     app,
     db,

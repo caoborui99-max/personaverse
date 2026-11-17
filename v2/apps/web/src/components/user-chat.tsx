@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ChatAllowancePanel } from './chat-allowance';
 import { createUserClient, UserApiError, type PersonalConversation } from '@pv/api-client';
 const api = createUserClient();
 type Pending = { clientMessageId: string; content: string };
@@ -28,6 +29,8 @@ export function PersonalChat({
   personaName?: string;
 }) {
   const router = useRouter();
+  const [quotaAllowed, setQuotaAllowed] = useState(true);
+  const [quotaRevision, setQuotaRevision] = useState(0);
   const [session, setSession] = useState<PersonalConversation | null>(null),
     [input, setInput] = useState(''),
     [pending, setPending] = useState<Pending | null>(null),
@@ -115,7 +118,7 @@ export function PersonalChat({
     endRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [session?.messages.length]);
   async function send(retry?: Pending) {
-    if (lock.current || !session || session.canSend !== true) return;
+    if (lock.current || !session || session.canSend !== true || !quotaAllowed) return;
     const message = retry ?? { clientMessageId: crypto.randomUUID(), content: input };
     if (!message.content.trim()) return;
     lock.current = true;
@@ -127,10 +130,21 @@ export function PersonalChat({
       const current = await api.send(session.id, message.clientMessageId, message.content);
       if (live.current) accepted(current);
     } catch (e) {
-      if (live.current) fail(e);
+      if (live.current) {
+        if (
+          e instanceof UserApiError &&
+          ['PERSONAL_TOKEN_LIMIT', 'CHAT_ALLOWANCE_EXHAUSTED'].includes(e.code)
+        ) {
+          pendingRef.current = null;
+          setPending(null);
+          setInput(message.content);
+        }
+        fail(e);
+      }
     } finally {
       lock.current = false;
       if (live.current) {
+        setQuotaRevision((v) => v + 1);
         setBusy(false);
         setTimeout(() => inputRef.current?.focus(), 0);
       }
@@ -253,6 +267,13 @@ export function PersonalChat({
           <div ref={endRef} />
         </div>
         <div className="composer-area">
+          {session && (
+            <ChatAllowancePanel
+              chatId={session.id}
+              revision={session.messages.length + quotaRevision}
+              onAllowed={setQuotaAllowed}
+            />
+          )}
           {session && session.canSend !== true && (
             <p role="status" className="notice">
               这段历史记录仍可查看。会话已关闭，或人格已下架，暂时不能发送新消息。
@@ -265,7 +286,7 @@ export function PersonalChat({
                 <div className="account-links">
                   {pending && session && (
                     <button
-                      disabled={busy || session.canSend !== true}
+                      disabled={busy || session.canSend !== true || !quotaAllowed}
                       onClick={() => void send(pending)}
                     >
                       重试消息
@@ -299,7 +320,7 @@ export function PersonalChat({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               maxLength={4000}
-              disabled={busy || !session || session.canSend !== true || !!pending}
+              disabled={busy || !session || session.canSend !== true || !quotaAllowed || !!pending}
               placeholder="写下一句话…"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -311,7 +332,14 @@ export function PersonalChat({
             <button
               className="send-button"
               aria-label="发送消息"
-              disabled={busy || !session || session.canSend !== true || !!pending || !input.trim()}
+              disabled={
+                busy ||
+                !session ||
+                session.canSend !== true ||
+                !quotaAllowed ||
+                !!pending ||
+                !input.trim()
+              }
             >
               {busy ? '···' : '↑'}
             </button>

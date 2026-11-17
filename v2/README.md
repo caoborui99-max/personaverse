@@ -1,5 +1,7 @@
 # PersonaVerse 2.0 · 数据库与站长工作空间
 
+2026-11-17：[每日60分钟聊天制度](docs/chat-allowance-policy.md)。已验证用户使用服务端短租约计时，5分钟无活动暂停；每日北京时间零点重置，同时受Mock Token保护额度约束。游客入口`/demo`为预置展示，真实AI保持关闭。
+
 后续本地实验：[私有Durable Object密码计算与免费CPU复核](docs/argon-free-offload-validation.md)。已保留原CPU门禁；计算拆分不等于免费账号实际CPU验收。`pnpm cf:bench:password-object`只验证执行位置。
 
 2026-11-16：[Cloudflare免费方案实际验收](docs/cloudflare-free-readiness.md)。本地Workers功能与HTTPS验证可用；现有Argon2id强度的免费10ms CPU门禁未通过，不能承诺完整免费公网运行。新增`pnpm cf:bench:argon --require-free-cpu`可复测，本地超限时明确退出2。HTTPS浏览器回归需要OpenSSL、NSS `certutil`和Playwright Firefox，CA仅安装在一次性浏览器配置中。

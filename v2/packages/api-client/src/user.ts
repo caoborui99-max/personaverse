@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ChatSession, ErrorEnvelope, Persona } from '@pv/shared';
+import { ChatSession, ErrorEnvelope, Persona, ChatAllowance } from '@pv/shared';
 export const UserProfile = z.object({
   id: z.string().uuid(),
   email: z.string(),
@@ -86,6 +86,23 @@ export function createUserClient(base = '/api/v1') {
   }
   return {
     session,
+    async allowance() {
+      return ChatAllowance.parse(await request('/me/chat-allowance'));
+    },
+    async activity(
+      id: string,
+      action: 'start' | 'activity' | 'heartbeat' | 'pause',
+      leaseId?: string,
+      eventId = crypto.randomUUID(),
+    ) {
+      return ChatAllowance.parse(
+        await write('/me/chats/' + encodeURIComponent(id) + '/activity', {
+          action,
+          eventId,
+          ...(leaseId ? { leaseId } : {}),
+        }),
+      );
+    },
     register: (email: string, password: string, displayName: string) =>
       anonymous('/auth/register', { email, password, displayName }),
     verify: (token: string) => anonymous('/auth/verify', { token }),

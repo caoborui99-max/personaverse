@@ -191,7 +191,7 @@ it('serializes cross-instance competitors for the final balance', async () => {
     await otherDb.$disconnect();
   }
 });
-it('admin tests consume global and independent admin budgets, not visitor quota', async () => {
+it('administrators reserve global budgets without personal or visitor budget holds', async () => {
   actor = { kind: 'admin', id: h.admin.id, ip: '192.0.2.11' };
   sessionId = (await chat()).id;
   await budgets();
@@ -200,11 +200,29 @@ it('admin tests consume global and independent admin budgets, not visitor quota'
     where: { reservationId: r.reservation!.id },
     include: { budget: true },
   });
-  expect(holds.map((h) => h.budget.scope).sort()).toEqual([
-    'admin-test',
-    'global-day',
-    'global-month',
-  ]);
+  expect(holds.map((h) => h.budget.scope).sort()).toEqual(['global-day', 'global-month']);
+});
+it('administrators bypass personal daily counts but global money and minute safety limits remain enforced', async () => {
+  actor = { kind: 'admin', id: h.admin.id, ip: '192.0.2.11' };
+  sessionId = (await chat()).id;
+  await budgets();
+  await h.db.aiControl.update({ where: { id: 'global' }, data: { requestsPerDay: 1 } });
+  await h.db.aiBudget.updateMany({
+    where: { scope: 'admin-test', subject: actor.id },
+    data: { limitUnits: 0n },
+  });
+  await reserve();
+  sessionId = (await chat()).id;
+  await reserve();
+  await h.db.aiBudget.updateMany({ where: { scope: 'global-day' }, data: { limitUnits: 0n } });
+  sessionId = (await chat()).id;
+  await expect(reserve()).rejects.toMatchObject({ code: 'BUDGET_EXHAUSTED' });
+  await h.db.aiBudget.updateMany({
+    where: { scope: 'global-day' },
+    data: { limitUnits: 10000000n },
+  });
+  await h.db.aiControl.update({ where: { id: 'global' }, data: { ratePerMinute: 1 } });
+  await expect(reserve()).rejects.toMatchObject({ code: 'RATE_LIMITED' });
 });
 it('denies absent new day/month budgets and preserves old reservations across UTC boundaries', async () => {
   const r = await reserve();

@@ -198,6 +198,11 @@ test('two devices restore personal chats and favorites while other users and adm
   await page.getByRole('textbox', { name: '消息', exact: true }).fill(content);
   await page.getByRole('button', { name: '发送消息', exact: true }).click();
   await expect(page.locator('.message.user')).toContainText(content);
+  await expect(page.getByTestId('chat-allowance')).toContainText('60分钟');
+  await expect(page.getByTestId('chat-allowance')).toContainText('Mock保守估算');
+  const allowance = await (await page.request.get('/api/v1/me/chat-allowance')).json();
+  expect(allowance.dailyMs).toBe(3600000);
+  expect(allowance.remainingTokens).toBeLessThan(100000);
   await page.goto('/persona/' + p.slug);
   const favorite = page.getByRole('button', { name: '收藏' + p.slug, exact: true });
   await expect(favorite).toBeEnabled();
@@ -212,6 +217,9 @@ test('two devices restore personal chats and favorites while other users and adm
   await expect(second.getByRole('link', { name: new RegExp(p.name) })).toBeVisible();
   await second.goto('/history/' + id);
   await expect(second.locator('.message.user')).toContainText(content);
+  expect(
+    (await (await second.request.get('/api/v1/me/chat-allowance')).json()).remainingTokens,
+  ).toBe(allowance.remainingTokens);
   expect(await conversationId(second)).toBe(id);
   await second.reload();
   expect(await conversationId(second)).toBe(id);
@@ -380,4 +388,47 @@ test('explicit mock external binding preserves local account and multi-cookie re
   );
   await page.getByRole('link', { name: '返回个人中心' }).click();
   await expect(page.getByText('热土身份已绑定（模拟验证）。', { exact: true })).toBeVisible();
+});
+
+test('a simulated quota rejection preserves the editable draft and later real mock send succeeds', async ({
+  page,
+  request,
+  baseURL,
+}) => {
+  const origin = new URL(baseURL!).origin,
+    account = fresh();
+  await verified(page.request, origin, account);
+  const p = await persona(request, origin);
+  await login(page, account);
+  await page.goto('/chat/' + p.slug);
+  const id = await conversationId(page);
+  const path = '**/api/v1/me/chats/' + id + '/messages';
+  await page.route(path, (route) =>
+    route.fulfill({
+      status: 429,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        error: {
+          code: 'PERSONAL_TOKEN_LIMIT',
+          message: 'TEST ONLY 模拟额度不足',
+          requestId: randomUUID(),
+          retryable: false,
+        },
+      }),
+    }),
+  );
+  const input = page.getByRole('textbox', { name: '消息', exact: true });
+  await input.fill('TEST ONLY PRESERVED DRAFT');
+  await page.getByRole('button', { name: '发送消息', exact: true }).click();
+  await expect(page.locator('.chat-error[role="alert"]')).toContainText('TEST ONLY 模拟额度不足');
+  await expect(input).toBeEnabled();
+  await expect(input).toHaveValue('TEST ONLY PRESERVED DRAFT');
+  await page.unroute(path);
+  await page.getByRole('button', { name: '发送消息', exact: true }).click();
+  await expect(page.locator('.message.user')).toHaveCount(1);
+  await expect(page.locator('.message.assistant')).toHaveCount(1);
+  await expect(input).toHaveValue('');
+  const s = await (await page.request.get('/api/v1/me/chat-allowance')).json();
+  expect(s.remainingTokens).toBeLessThan(100000);
+  await expect(page.getByTestId('chat-allowance')).toContainText('北京时间00:00');
 });

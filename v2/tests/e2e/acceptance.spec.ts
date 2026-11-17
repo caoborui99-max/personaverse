@@ -1,4 +1,17 @@
 import { expect, test } from '@playwright/test';
+test('guest preset demo is readable without initiating model or chat requests', async ({
+  page,
+}) => {
+  const calls: string[] = [];
+  page.on('request', (r) => {
+    if (/\/api\/v1\/.*(?:ai-requests|messages|chat\/sessions)/.test(r.url())) calls.push(r.url());
+  });
+  expect((await page.goto('/demo'))?.status()).toBe(200);
+  await expect(page.getByRole('heading', { name: '先体验一段预置演示。' })).toBeVisible();
+  await expect(page.getByText('预置展示 · 非AI回复', { exact: true })).toBeVisible();
+  await expect(page.getByRole('textbox')).toHaveCount(0);
+  expect(calls).toEqual([]);
+});
 test('public routes, SSR content, search, favorites and admin barrier', async ({
   page,
   request,

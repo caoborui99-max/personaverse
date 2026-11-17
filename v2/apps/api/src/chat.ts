@@ -164,6 +164,7 @@ export function chatRoutes(
       await db.$transaction(
         async (tx) => {
           // NOWAIT rejects concurrent work instead of leaving stuck locks. Transaction releases on failure.
+          await tx.$queryRaw`SELECT id FROM "AiControl" WHERE id='global' FOR UPDATE`;
           await tx.$queryRaw`SELECT id FROM "ChatSession" WHERE id=${session.id}::uuid FOR UPDATE NOWAIT`;
           const current = await tx.chatSession.findUniqueOrThrow({ where: { id: session.id } });
           await tx.$queryRaw`SELECT id FROM "Persona" WHERE id=${current.personaId}::uuid FOR SHARE`;
@@ -195,6 +196,8 @@ export function chatRoutes(
             'message',
             admin,
           );
+          if ((await tx.aiControl.findUniqueOrThrow({ where: { id: 'global' } })).circuitOpen)
+            fail(503, 'AI_CIRCUIT_OPEN', '全站费用安全熔断已开启。');
           const count = await tx.chatMessage.count({ where: { sessionId: session.id } });
           if (!admin && count >= 1000) fail(429, 'HISTORY_LIMIT', '演示记录已满。');
           await tx.chatMessage.createMany({

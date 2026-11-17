@@ -114,28 +114,30 @@ model VisitorSession {
 }
 
 model ChatSession {
-  id            String             @id @default(uuid()) @db.Uuid
-  personaId     String             @db.Uuid
-  coreVersionId String             @db.Uuid
-  adminId       String?            @db.Uuid
-  visitorId     String?            @db.Uuid
-  userId        String?            @db.Uuid
-  creationKey   String?            @db.Uuid
-  deletedAt     DateTime?          @db.Timestamptz
-  status        String             @default("active")
-  createdAt     DateTime           @default(now()) @db.Timestamptz
-  updatedAt     DateTime           @updatedAt @db.Timestamptz
-  persona       Persona            @relation(fields: [personaId], references: [id], onDelete: Restrict)
-  coreVersion   PersonaCoreVersion @relation(fields: [personaId, coreVersionId], references: [personaId, id], onDelete: Restrict)
-  admin         AdminAccount?      @relation(fields: [adminId], references: [id], onDelete: Restrict)
-  visitor       VisitorSession?    @relation(fields: [visitorId], references: [id], onDelete: Restrict)
-  user          User?              @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  messages      ChatMessage[]
-  usage         AiUsageRecord[]
-  requests      ChatRequest[]
+  id             String             @id @default(uuid()) @db.Uuid
+  personaId      String             @db.Uuid
+  coreVersionId  String             @db.Uuid
+  adminId        String?            @db.Uuid
+  visitorId      String?            @db.Uuid
+  userId         String?            @db.Uuid
+  creationKey    String?            @db.Uuid
+  deletedAt      DateTime?          @db.Timestamptz
+  status         String             @default("active")
+  createdAt      DateTime           @default(now()) @db.Timestamptz
+  updatedAt      DateTime           @updatedAt @db.Timestamptz
+  persona        Persona            @relation(fields: [personaId], references: [id], onDelete: Restrict)
+  coreVersion    PersonaCoreVersion @relation(fields: [personaId, coreVersionId], references: [personaId, id], onDelete: Restrict)
+  admin          AdminAccount?      @relation(fields: [adminId], references: [id], onDelete: Restrict)
+  visitor        VisitorSession?    @relation(fields: [visitorId], references: [id], onDelete: Restrict)
+  user           User?              @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  messages       ChatMessage[]
+  usage          AiUsageRecord[]
+  requests       ChatRequest[]
+  activityClocks UserChatClock[]
 
   @@unique([id, coreVersionId])
   @@unique([userId, creationKey])
+  @@unique([userId, id])
   @@index([userId, deletedAt, updatedAt, id])
   @@index([adminId, updatedAt])
   @@index([visitorId, updatedAt])
@@ -336,9 +338,13 @@ model User {
   externalIdentities   ExternalIdentity[]
   externalTransactions ExternalAuthTransaction[]
   favorites            UserFavorite[]
+  chatDays             UserChatDay[]
+  chatClock            UserChatClock?
+  activityEvents       ChatActivityEvent[]
 }
 
 model UserSession {
+  chatClocks           UserChatClock[]
   externalTransactions ExternalAuthTransaction[]
   id                   String                    @id @default(uuid()) @db.Uuid
   userId               String                    @db.Uuid
@@ -353,6 +359,41 @@ model UserSession {
   @@unique([userId, id])
   @@index([userId, expiresAt])
   @@index([expiresAt])
+}
+
+model UserChatDay {
+  userId     String @db.Uuid
+  day        String @db.Char(10)
+  usedMs     Int    @default(0)
+  usedTokens Int    @default(0)
+  user       User   @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@id([userId, day])
+}
+
+model UserChatClock {
+  userId         String       @id @db.Uuid
+  ownerSessionId String?      @db.Uuid
+  chatId         String?      @db.Uuid
+  leaseId        String?      @db.Uuid
+  settledAt      DateTime?    @db.Timestamptz
+  leaseUntil     DateTime?    @db.Timestamptz
+  activityAt     DateTime?    @db.Timestamptz
+  user           User         @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  owner          UserSession? @relation(fields: [userId, ownerSessionId], references: [userId, id], onDelete: Restrict, onUpdate: NoAction)
+  chat           ChatSession? @relation(fields: [userId, chatId], references: [userId, id], onDelete: Restrict, onUpdate: NoAction)
+}
+
+model ChatActivityEvent {
+  userId      String   @db.Uuid
+  eventId     String   @db.Uuid
+  fingerprint String   @db.Char(64)
+  response    Json
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@id([userId, eventId])
+  @@index([createdAt])
 }
 
 model EmailVerification {

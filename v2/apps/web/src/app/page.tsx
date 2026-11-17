@@ -25,7 +25,9 @@ export default async function Home() {
             <Link className="button primary" href="/explore">
               探索人格宇宙 <span>↗</span>
             </Link>
-            <span className="hero-note">自由浏览 · 登录后聊天</span>
+            <Link className="hero-note" href="/demo">
+              先看预置演示 ↗
+            </Link>
           </div>
           <div className="hero-stats">
             <span>

@@ -156,7 +156,7 @@ export class BudgetEngine {
                 ['visitor-day', actor.id, day],
                 ['visitor-life', actor.id, 'lifetime'],
               ]
-            : [['admin-test', actor.id, day]]),
+            : []),
         ];
         const budgets = [];
         for (const [scope, subject, period] of scopes) {
@@ -187,12 +187,13 @@ export class BudgetEngine {
             control.ratePerMinute,
             new Date(this.now().getTime() + 86400000),
           );
-          await this.rate(
-            tx,
-            subject + ':day:' + day,
-            control.requestsPerDay,
-            new Date(this.now().getTime() + 2 * 86400000),
-          );
+          if (actor.kind !== 'admin')
+            await this.rate(
+              tx,
+              subject + ':day:' + day,
+              control.requestsPerDay,
+              new Date(this.now().getTime() + 2 * 86400000),
+            );
         }
         const r = await tx.chatRequest.create({
           data: {
