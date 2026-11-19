@@ -97,9 +97,8 @@ jobs:
           );
           NODE
 
-      - name: Show migration status
-        run: pnpm exec prisma migrate status --schema database/schema.prisma
-
+      # prisma migrate status exits 1 when migrations are pending.
+      # Deploy validates migration history and applies only checked-in migrations.
       - name: Apply checked-in migrations
         run: pnpm exec prisma migrate deploy --schema database/schema.prisma
 
