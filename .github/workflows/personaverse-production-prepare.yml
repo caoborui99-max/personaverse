@@ -1,0 +1,58 @@
+name: PersonaVerse production build verification
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'v2/**'
+      - '.github/workflows/personaverse-production-prepare.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: personaverse-production-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: v2
+        shell: bash
+    env:
+      CI: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '11.25.0'
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm db:generate
+      - name: Generate Cloudflare client
+        run: pnpm cf:client
+      - name: Generate password wasm
+        run: pnpm cf:wasm
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Cloudflare typecheck
+        run: pnpm cf:typecheck
+      - name: Unit tests
+        run: pnpm test
+      - name: Build application
+        run: pnpm build
+      - name: Build Cloudflare bundles
+        run: pnpm cf:build
+      - name: Production packaging dry run (no deployment)
+        run: node scripts/production-dry-run.mjs
