@@ -97,7 +97,7 @@ jobs:
           printf '%s' "$PV_BRIDGE_SECRET" | pnpm exec wrangler secret put BRIDGE_SECRET --config cloudflare/production/api.jsonc
           printf '%s' "$PV_DEEPSEEK_API_KEY" | pnpm exec wrangler secret put DEEPSEEK_API_KEY --config cloudflare/production/api.jsonc
           printf '%s' "$PV_RESEND_API_KEY" | pnpm exec wrangler secret put RESEND_API_KEY --config cloudflare/production/api.jsonc
+      - name: Install Web bridge secret before public deployment
+        run: printf '%s' "$PV_BRIDGE_SECRET" | pnpm exec wrangler secret put BRIDGE_SECRET --config cloudflare/production/web.jsonc
       - name: Deploy public Web Worker on workers.dev (API/password stay private)
         run: pnpm exec wrangler deploy --config cloudflare/production/web.jsonc
-      - name: Install Web bridge secret
-        run: printf '%s' "$PV_BRIDGE_SECRET" | pnpm exec wrangler secret put BRIDGE_SECRET --config cloudflare/production/web.jsonc
