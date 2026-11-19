@@ -9,7 +9,8 @@ on:
         type: string
       web_origin:
         description: 'Confirmed https://pv-web-production.<subdomain>.workers.dev origin'
-        required: true
+        required: false
+        default: 'https://pv-web-production.caoborui99.workers.dev'
         type: string
       mail_from:
         description: 'Verified sender email address'
