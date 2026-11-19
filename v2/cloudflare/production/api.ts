@@ -4,10 +4,7 @@ import { createFetchApp } from '../../apps/api/src/fetch-app.ts';
 import { registerDatabaseApp } from '../../apps/api/src/database-routes.ts';
 import { withPasswordHasher, type PasswordNamespace } from '../argon-rpc.ts';
 import { verifyBridge } from '../../packages/api-client/src/private-bridge.ts';
-import {
-  productionDatabase as previewDatabase,
-  productionOrigin as previewOrigin,
-} from './policy.ts';
+import { productionDatabase, productionOrigin } from './policy.ts';
 import { previewPath } from '../mock-preview/policy.ts';
 import { assertProductionRole } from './policy.ts';
 import { DeepSeekProvider } from '../../apps/api/src/ai/deepseek.ts';
@@ -30,10 +27,10 @@ export default {
   async scheduled(_event: unknown, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
     ctx.waitUntil(
       (async () => {
-        previewOrigin(env.WEB_ORIGIN);
+        productionOrigin(env.WEB_ORIGIN);
         if (env.HYPERDRIVE_CACHE_DISABLED !== 'true')
           throw new Error('CACHE_CONFIRMATION_REQUIRED');
-        const databaseUrl = previewDatabase(
+        const databaseUrl = productionDatabase(
           env.HYPERDRIVE.connectionString,
           env.PRODUCTION_DATABASE,
           env.PRODUCTION_ROLE,
@@ -63,13 +60,13 @@ export default {
   async fetch(request: Request, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
     if (!previewPath(request)) return new Response('Not found', { status: 404 });
     try {
-      const origin = previewOrigin(env.WEB_ORIGIN);
+      const origin = productionOrigin(env.WEB_ORIGIN);
       if (new URL(request.url).origin !== origin || env.HYPERDRIVE_CACHE_DISABLED !== 'true')
         throw new Error('PREVIEW_CONFIG_REQUIRED');
       const ip = await verifyBridge(request, env.BRIDGE_SECRET);
       if (!ip)
         return Response.json({ error: { code: 'PRIVATE_BINDING_REQUIRED' } }, { status: 403 });
-      const databaseUrl = previewDatabase(
+      const databaseUrl = productionDatabase(
         env.HYPERDRIVE.connectionString,
         env.PRODUCTION_DATABASE,
         env.PRODUCTION_ROLE,
