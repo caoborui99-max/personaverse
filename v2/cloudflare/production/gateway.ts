@@ -25,7 +25,7 @@ export async function gateway(
       const ip = request.headers.get('cf-connecting-ip') ?? '';
       if (!(request as Request & { cf?: unknown }).cf)
         return new Response('Trusted edge required', { status: 403 });
-      return env.API.fetch(await signBridge(request, env.BRIDGE_SECRET, ip));
+      return await env.API.fetch(await signBridge(request, env.BRIDGE_SECRET, ip));
     }
     return await render();
   } catch {

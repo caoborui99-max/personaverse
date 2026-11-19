@@ -15,13 +15,11 @@ async function apiFetch(url: string, options: RequestInit) {
       BRIDGE_SECRET: string;
     };
     if (env.MOCK_PREVIEW === 'closed' || env.PRODUCTION_API === 'enabled') {
-      const { signBridge } = await import('../../../../packages/api-client/src/private-bridge.ts');
-      const internalUrl = new URL(url);
-      // Rebuild the URL from the public origin instead of changing host/protocol:
-      // URL.host assignment retains the original :4311 port in Workers.
-      const target = new URL(internalUrl.pathname + internalUrl.search, env.WEB_ORIGIN);
+      const { privateApiRequest } = await import(
+        '../../../../packages/api-client/src/service-request.ts'
+      );
       return env.API.fetch(
-        await signBridge(new Request(target, options), env.BRIDGE_SECRET, 'ssr'),
+        await privateApiRequest(url, options, env.WEB_ORIGIN, env.BRIDGE_SECRET),
       );
     }
     return env.API.fetch(new Request(url, options));

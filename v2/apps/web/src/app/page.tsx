@@ -1,9 +1,11 @@
 import Link from 'next/link';
+import { loadCatalog } from '../lib/catalog';
+import { CatalogUnavailable } from '../components/catalog-unavailable';
 import { publicList } from '../lib/server-api';
 export const dynamic = 'force-dynamic';
 import { PersonaCard } from '../components/persona-card';
 export default async function Home() {
-  const data = await publicList();
+  const { data } = await loadCatalog(publicList);
   return (
     <>
       <section className="hero">
@@ -62,17 +64,20 @@ export default async function Home() {
             查看全部 ↗
           </Link>
         </div>
-        <p className="notice">
-          {data.mode === 'mock'
-            ? '基础工程预览 · 以下均为中性测试数据，聊天使用模拟回复，尚未接入真实 AI。'
-            : '公开资料由站长创作并发布。聊天仍为模拟回复，尚未接入真实模型。'}
-        </p>
+        {data && (
+          <p className="notice">
+            {data?.mode === 'mock'
+              ? '基础工程预览 · 以下均为中性测试数据，聊天使用模拟回复，尚未接入真实 AI。'
+              : '公开资料由站长创作并发布。聊天仍为模拟回复，尚未接入真实模型。'}
+          </p>
+        )}
         <div className="persona-grid">
-          {data.items.map((p, i) => (
+          {data?.items.map((p, i) => (
             <PersonaCard key={p.slug} persona={p} index={i} />
           ))}
         </div>
-        {!data.items.length && <p className="empty">站长尚未发布人格，敬请期待。</p>}
+        {data && !data.items.length && <p className="empty">站长尚未发布人格，敬请期待。</p>}
+        {!data && <CatalogUnavailable />}
       </section>
       <section className="closing">
         <span>保持好奇。</span>
