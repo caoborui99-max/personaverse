@@ -40,6 +40,9 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       PV_WEB_ORIGIN: ${{ inputs.web_origin }}
       PV_MAIL_FROM: ${{ inputs.mail_from }}
+      PV_BRIDGE_SECRET: ${{ secrets.BRIDGE_SECRET }}
+      PV_DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      PV_RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -77,9 +80,24 @@ jobs:
       - run: pnpm build
       - run: pnpm cf:build
       - run: node scripts/production-dry-run.mjs
+      - name: Verify runtime secrets before any deployment
+        run: |
+          node --input-type=module <<'NODE'
+          const required = ['PV_BRIDGE_SECRET', 'PV_DEEPSEEK_API_KEY', 'PV_RESEND_API_KEY'];
+          for (const key of required) if (!process.env[key]) throw new Error('Missing required GitHub Actions secret: ' + key.slice(3));
+          if (Buffer.byteLength(process.env.PV_BRIDGE_SECRET, 'utf8') < 32) throw new Error('BRIDGE_SECRET must be at least 32 bytes');
+          NODE
       - name: Deploy private password Worker
         run: pnpm exec wrangler deploy --config cloudflare/production/password.jsonc
       - name: Deploy private API Worker
         run: pnpm exec wrangler deploy --config cloudflare/production/api.jsonc
+      - name: Install API runtime secrets (AI stays disabled)
+        run: |
+          set -euo pipefail
+          printf '%s' "$PV_BRIDGE_SECRET" | pnpm exec wrangler secret put BRIDGE_SECRET --config cloudflare/production/api.jsonc
+          printf '%s' "$PV_DEEPSEEK_API_KEY" | pnpm exec wrangler secret put DEEPSEEK_API_KEY --config cloudflare/production/api.jsonc
+          printf '%s' "$PV_RESEND_API_KEY" | pnpm exec wrangler secret put RESEND_API_KEY --config cloudflare/production/api.jsonc
       - name: Deploy public Web Worker on workers.dev (API/password stay private)
         run: pnpm exec wrangler deploy --config cloudflare/production/web.jsonc
+      - name: Install Web bridge secret
+        run: printf '%s' "$PV_BRIDGE_SECRET" | pnpm exec wrangler secret put BRIDGE_SECRET --config cloudflare/production/web.jsonc
