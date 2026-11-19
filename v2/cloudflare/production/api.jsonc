@@ -18,14 +18,14 @@
       },
     ],
   },
-  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "REPLACE_HYPERDRIVE_ID" }],
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "cdcded9d69444451bd3a9458da65b1a8" }],
   "triggers": { "crons": ["*/5 * * * *"] },
   "vars": {
     "AI_ENABLED": "false",
     "MAIL_FROM": "REPLACE_VERIFIED_SENDER",
     "WEB_ORIGIN": "https://pv-web-production.REPLACE_ACCOUNT.workers.dev",
-    "PRODUCTION_DATABASE": "REPLACE_DATABASE",
-    "PRODUCTION_ROLE": "REPLACE_APP_ROLE",
-    "HYPERDRIVE_CACHE_DISABLED": "false",
+    "PRODUCTION_DATABASE": "neondb",
+    "PRODUCTION_ROLE": "personaverse_app",
+    "HYPERDRIVE_CACHE_DISABLED": "true",
   },
 }
