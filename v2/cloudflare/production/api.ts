@@ -59,18 +59,22 @@ export default {
   },
   async fetch(request: Request, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
     if (!previewPath(request)) return new Response('Not found', { status: 404 });
+    let stage = 'validate_origin';
     try {
       const origin = productionOrigin(env.WEB_ORIGIN);
       if (new URL(request.url).origin !== origin || env.HYPERDRIVE_CACHE_DISABLED !== 'true')
         throw new Error('PREVIEW_CONFIG_REQUIRED');
+      stage = 'verify_bridge';
       const ip = await verifyBridge(request, env.BRIDGE_SECRET);
       if (!ip)
         return Response.json({ error: { code: 'PRIVATE_BINDING_REQUIRED' } }, { status: 403 });
+      stage = 'validate_hyperdrive';
       const databaseUrl = productionDatabase(
         env.HYPERDRIVE.connectionString,
         env.PRODUCTION_DATABASE,
         env.PRODUCTION_ROLE,
       );
+      stage = 'initialize_database';
       const db = new PrismaClient({
         adapter: new PrismaPg({
           connectionString: databaseUrl,
@@ -91,11 +95,13 @@ export default {
         config: { environment: 'production', databaseUrl, origin, secure: true },
       });
       try {
+        stage = 'check_database_role';
         await assertProductionRole(
           (sql) => db.$queryRawUnsafe(sql),
           env.PRODUCTION_ROLE,
           env.PRODUCTION_DATABASE,
         );
+        stage = 'serve_api';
         return await withPasswordHasher(env.PASSWORD_HASHERS, async () => {
           await app.ready();
           return app.fetch(request);
@@ -103,7 +109,14 @@ export default {
       } finally {
         ctx.waitUntil(app.close());
       }
-    } catch {
+    } catch (error) {
+      // Deliberately log only a fixed stage and safe error class; never log error messages,
+      // stack traces, connection strings, request bodies, headers, or credentials.
+      const errorClass = error instanceof Error ? error.name : 'Unknown';
+      const safeClass = ['Error', 'TypeError', 'RangeError', 'SyntaxError', 'AbortError'].includes(errorClass)
+        ? errorClass
+        : 'Other';
+      console.error('PERSONAVERSE_API_FAILURE', { stage, errorClass: safeClass });
       return Response.json(
         { error: { code: 'PRODUCTION_UNAVAILABLE', retryable: true } },
         { status: 503 },
