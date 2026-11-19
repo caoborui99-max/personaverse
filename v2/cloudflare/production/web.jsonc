@@ -3,7 +3,7 @@
   "main": "web.ts",
   "compatibility_date": "2026-11-13",
   "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": false,
+  "workers_dev": true,
   "preview_urls": false,
   "vars": {
     "PV_WORKERS_ADAPTER": "opennext",

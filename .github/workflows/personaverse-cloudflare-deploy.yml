@@ -1,0 +1,85 @@
+name: PersonaVerse Cloudflare production deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY_PERSONAVERSE_WORKERS to authorize deployment'
+        required: true
+        type: string
+      web_origin:
+        description: 'Confirmed https://pv-web-production.<subdomain>.workers.dev origin'
+        required: false
+        default: 'https://pv-web-production.caoborui99.workers.dev'
+        type: string
+      mail_from:
+        description: 'Verified sender email address'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: personaverse-cloudflare-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ inputs.confirm == 'DEPLOY_PERSONAVERSE_WORKERS' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: production-cloudflare
+    defaults:
+      run:
+        working-directory: v2
+        shell: bash
+    env:
+      CI: 'true'
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PV_WEB_ORIGIN: ${{ inputs.web_origin }}
+      PV_MAIL_FROM: ${{ inputs.mail_from }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.25.0'
+      - name: Validate authorization and production inputs
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const token = process.env.CLOUDFLARE_API_TOKEN ?? '';
+          const account = process.env.CLOUDFLARE_ACCOUNT_ID ?? '';
+          const origin = process.env.PV_WEB_ORIGIN ?? '';
+          const sender = process.env.PV_MAIL_FROM ?? '';
+          if (!token || !/^[0-9a-f]{32}$/i.test(account)) throw new Error('Missing Cloudflare deployment credentials or invalid account ID');
+          if (!/^https:\/\/pv-web-production\.[a-z0-9-]+\.workers\.dev$/i.test(origin)) throw new Error('Supply the exact Cloudflare workers.dev origin for pv-web-production');
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sender) || sender.includes('REPLACE_')) throw new Error('Supply a verified sender');
+          for (const file of ['cloudflare/production/api.jsonc','cloudflare/production/web.jsonc']) {
+            const src = fs.readFileSync(file,'utf8');
+            const out = src.replaceAll('https://pv-web-production.REPLACE_ACCOUNT.workers.dev', origin)
+              .replaceAll('REPLACE_VERIFIED_SENDER',sender);
+            if (out.includes('REPLACE_')) throw new Error('Unresolved production placeholder in '+file);
+            fs.writeFileSync(file,out);
+          }
+          NODE
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm cf:client
+      - run: pnpm cf:wasm
+      - run: pnpm typecheck
+      - run: pnpm cf:typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm cf:build
+      - run: node scripts/production-dry-run.mjs
+      - name: Deploy private password Worker
+        run: pnpm exec wrangler deploy --config cloudflare/production/password.jsonc
+      - name: Deploy private API Worker
+        run: pnpm exec wrangler deploy --config cloudflare/production/api.jsonc
+      - name: Deploy public Web Worker on workers.dev (API/password stay private)
+        run: pnpm exec wrangler deploy --config cloudflare/production/web.jsonc
