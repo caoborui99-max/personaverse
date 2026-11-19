@@ -62,12 +62,20 @@ export default {
     let stage = 'validate_origin';
     try {
       const origin = productionOrigin(env.WEB_ORIGIN);
-      if (new URL(request.url).origin !== origin || env.HYPERDRIVE_CACHE_DISABLED !== 'true')
-        throw new Error('PREVIEW_CONFIG_REQUIRED');
+      stage = 'validate_request_origin';
+      if (new URL(request.url).origin !== origin) throw new Error('REQUEST_ORIGIN_MISMATCH');
+      stage = 'validate_cache';
+      if (env.HYPERDRIVE_CACHE_DISABLED !== 'true') throw new Error('CACHE_CONFIRMATION_REQUIRED');
       stage = 'verify_bridge';
       const ip = await verifyBridge(request, env.BRIDGE_SECRET);
-      if (!ip)
+      if (!ip) {
+        console.error('PERSONAVERSE_API_FAILURE', {
+          stage,
+          reason: 'BRIDGE_PROOF_REJECTED',
+          status: 403,
+        });
         return Response.json({ error: { code: 'PRIVATE_BINDING_REQUIRED' } }, { status: 403 });
+      }
       stage = 'validate_hyperdrive';
       const databaseUrl = productionDatabase(
         env.HYPERDRIVE.connectionString,
@@ -86,6 +94,7 @@ export default {
         transactionOptions: { timeout: 10000 },
       });
       const app = createFetchApp({ clientIp: ip });
+      stage = 'register_routes';
       registerDatabaseApp(app.registration(), {
         db,
         deepseek:
@@ -104,7 +113,14 @@ export default {
         stage = 'serve_api';
         return await withPasswordHasher(env.PASSWORD_HASHERS, async () => {
           await app.ready();
-          return app.fetch(request);
+          const response = await app.fetch(request);
+          if (response.status >= 500)
+            console.error('PERSONAVERSE_API_FAILURE', {
+              stage,
+              reason: 'API_RESPONSE_FAILURE',
+              status: response.status,
+            });
+          return response;
         });
       } finally {
         ctx.waitUntil(app.close());
@@ -113,7 +129,9 @@ export default {
       // Deliberately log only a fixed stage and safe error class; never log error messages,
       // stack traces, connection strings, request bodies, headers, or credentials.
       const errorClass = error instanceof Error ? error.name : 'Unknown';
-      const safeClass = ['Error', 'TypeError', 'RangeError', 'SyntaxError', 'AbortError'].includes(errorClass)
+      const safeClass = ['Error', 'TypeError', 'RangeError', 'SyntaxError', 'AbortError'].includes(
+        errorClass,
+      )
         ? errorClass
         : 'Other';
       console.error('PERSONAVERSE_API_FAILURE', { stage, errorClass: safeClass });
