@@ -40,6 +40,9 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       PV_WEB_ORIGIN: ${{ inputs.web_origin }}
       PV_MAIL_FROM: ${{ inputs.mail_from }}
+      PV_DEEPSEEK_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      PV_BRIDGE_SECRET: ${{ secrets.BRIDGE_SECRET }}
+      PV_RESEND_KEY: ${{ secrets.RESEND_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -83,3 +86,20 @@ jobs:
         run: pnpm exec wrangler deploy --config cloudflare/production/api.jsonc
       - name: Deploy public Web Worker on workers.dev (API/password stay private)
         run: pnpm exec wrangler deploy --config cloudflare/production/web.jsonc
+      - name: Inject required runtime secrets (without exposing values)
+        run: |
+          set -euo pipefail
+          if [[ -z "${PV_BRIDGE_SECRET}" || "${#PV_BRIDGE_SECRET}" -lt 32 ]]; then
+            echo "::error::BRIDGE_SECRET must contain at least 32 characters"
+            exit 1
+          fi
+          if [[ -z "${PV_DEEPSEEK_KEY}" ]]; then
+            echo "::error::Missing DEEPSEEK_API_KEY repository secret"
+            exit 1
+          fi
+          printf '%s' "$PV_BRIDGE_SECRET" | pnpm exec wrangler secret put BRIDGE_SECRET --config cloudflare/production/api.jsonc
+          printf '%s' "$PV_BRIDGE_SECRET" | pnpm exec wrangler secret put BRIDGE_SECRET --config cloudflare/production/web.jsonc
+          printf '%s' "$PV_DEEPSEEK_KEY" | pnpm exec wrangler secret put DEEPSEEK_API_KEY --config cloudflare/production/api.jsonc
+          if [[ -n "${PV_RESEND_KEY}" ]]; then
+            printf '%s' "$PV_RESEND_KEY" | pnpm exec wrangler secret put RESEND_API_KEY --config cloudflare/production/api.jsonc
+          fi
